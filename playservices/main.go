@@ -18,11 +18,13 @@ func setupServer() (*http.ServeMux, *zap.Logger) {
 	l, _ := zap.NewProduction()
 	wh := handlers.NewWelcomeHandler(l)
 	rh := handlers.NewReadHandler(l)
+	p := handlers.NewProducts(l)
 
 	sm := http.NewServeMux()
 
 	sm.Handle("/welcome", wh)
 	sm.Handle("/read", rh)
+	sm.Handle("/products", p)
 	return sm, l
 }
 func main() {
@@ -42,16 +44,13 @@ func main() {
 	}()
 
 	sigChan := make(chan os.Signal, 1)
-	signal.Notify(sigChan, os.Interrupt)
-	signal.Notify(sigChan, syscall.SIGTERM)
+	signal.Notify(sigChan, os.Interrupt, syscall.SIGTERM)
 
 	sig := <-sigChan
 	l.Info("here")
 	switch sig {
 	case os.Interrupt:
 		l.Info("Received interrupt signal")
-	case syscall.SIGTERM:
-		l.Info("Received termination signal (SIGTERM)")
 	default:
 		l.Info("Received unknown signal:", zap.Any("signal", sig))
 	}
@@ -64,7 +63,5 @@ func main() {
 	err := s.Shutdown(ctx)
 	if err != nil {
 		l.Error("error during graceful shutdown", zap.Any("err", err))
-	} else {
-		l.Info("Received interrupt  signal:", zap.Any("ctx", ctx))
 	}
 }
