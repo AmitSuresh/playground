@@ -29,7 +29,7 @@ func (h *welcomeHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	//log, _ := zap.NewProduction()
 	log := h.l
-	ctx = context.WithValue(ctx, logKey, log)
+	ctx = InjectLogger(ctx, log)
 	log.Info("Hello World!", zap.Any(string(logKey), ctx.Value(logKey)))
 	w.WriteHeader(http.StatusOK)
 	w.Write([]byte("Hello World!"))
@@ -69,7 +69,7 @@ func (h *readHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	defer cancel() // Ensure cancellation on exit
 
 	log := h.l
-	ctx = context.WithValue(ctx, logKey, log)
+	ctx = InjectLogger(ctx, log)
 	log.Info("Hello World!", zap.Any(string(logKey), ctx.Value(logKey)))
 
 	d, err := io.ReadAll(r.Body)
@@ -83,8 +83,8 @@ func (h *readHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	ctx = context.WithValue(ctx, dataKey, d)
 	log.Info("reading!", zap.Any(string(dataKey), ctx.Value(dataKey)))
 
-	// Simulate slow processing (replace with actual work)
-	for i := 0; i < 6; i++ {
+	// Simulated slow processing to see the timeouts in action. ignore this as it is now set below timeout
+	for i := 0; i < 2; i++ {
 		select {
 		case <-ctx.Done():
 			log.Info("Context deadline reached during processing")
@@ -97,4 +97,13 @@ func (h *readHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	w.WriteHeader(http.StatusOK)
 	w.Write([]byte("reading!"))
+}
+
+func InjectLogger(ctx context.Context, l *zap.Logger) context.Context {
+	return context.WithValue(ctx, logKey, l)
+}
+
+func GetLoggerFromContext(ctx context.Context) *zap.Logger {
+	c, _ := ctx.Value(logKey).(*zap.Logger)
+	return c
 }

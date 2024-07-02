@@ -1,11 +1,13 @@
 package main
 
 import (
+	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"strings"
 	"testing"
 
+	"github.com/AmitSuresh/playground/playservices/data"
 	"github.com/AmitSuresh/playground/playservices/handlers"
 	"go.uber.org/zap"
 )
@@ -51,6 +53,35 @@ func TestReadHandler(t *testing.T) {
 		t.Fatal(err)
 	}
 	testHandler(t, "POST", "/read", "test data", "reading!", handlers.NewReadHandler(l).ServeHTTP)
+}
+
+func TestProductsHandler(t *testing.T) {
+	l, err := zap.NewProduction()
+	if err != nil {
+		t.Fatal(err)
+	}
+	//handler := handlers.NewProducts(l)
+	p := data.GetProducts()
+	b, err := json.Marshal(p)
+	if err != nil {
+		t.Fatal(err)
+	}
+	testHandler(t, "GET", "/products", "", string(b), handlers.NewProducts(l).ServeHTTP)
+	/* req, err := http.NewRequest("GET", "/products", strings.NewReader(string(b)))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	rr := httptest.NewRecorder()
+	handler.ServeHTTP(rr, req)
+
+	if status := rr.Code; status != http.StatusOK {
+		t.Errorf("handler returned wrong status code: got %v want %v", status, http.StatusOK)
+	}
+
+	if !strings.Contains(rr.Body.String(), string(b)) {
+		t.Errorf("handler returned unexpected body: got %v want %v", rr.Body.String(), string(b))
+	} */
 }
 
 func TestMainFunction(t *testing.T) {
