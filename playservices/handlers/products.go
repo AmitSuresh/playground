@@ -3,6 +3,8 @@ package handlers
 import (
 	"context"
 	"net/http"
+	"regexp"
+	"strconv"
 
 	"github.com/AmitSuresh/playground/playservices/data"
 	"go.uber.org/zap"
@@ -39,15 +41,17 @@ func (p *Products) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	ctx = InjectRequest(ctx, r)
 	log.Info("requestKey", zap.Any(string(requestKey), loggableRequest(r)))
 
-	// handle the request for a list of products
-	if r.Method == http.MethodGet {
+	switch r.Method {
+	case http.MethodGet:
 		p.getProducts(ctx)
-		return
-	}
+	case http.MethodPost:
+		p.addProducts(ctx)
+	case http.MethodPut:
+		p.updateProducts(ctx)
+	default:
+		w.WriteHeader(http.StatusMethodNotAllowed)
 
-	// catch all
-	// if no method is satisfied return an error
-	w.WriteHeader(http.StatusMethodNotAllowed)
+	}
 }
 
 // getProducts returns the products from the data store
@@ -63,6 +67,74 @@ func (p *Products) getProducts(ctx context.Context) {
 	err := lp.ToJSON(w)
 	if err != nil {
 		http.Error(w, "Unable to marshal json", http.StatusInternalServerError)
+	}
+}
+
+func (p *Products) addProducts(ctx context.Context) {
+
+	product := &data.Product{}
+
+	l := GetLoggerFromContext(ctx)
+	r := GetRequestFromContext(ctx)
+	w := GetResponseWriterFromContext(ctx)
+
+	l.Info("from addProducts")
+	err := product.FromJSON(r.Body)
+	if err != nil {
+		http.Error(w, "Unable to unmarshal json", http.StatusInternalServerError)
+	}
+	l.Info("Parsed product", zap.Any("product", product))
+	data.AddProduct(product)
+}
+
+func (p Products) updateProducts(ctx context.Context) {
+
+	l := GetLoggerFromContext(ctx)
+	r := GetRequestFromContext(ctx)
+	w := GetResponseWriterFromContext(ctx)
+	prod := &data.Product{}
+
+	l.Info("from updateProducts")
+
+	l.Info("PUT", zap.Any("", r.URL.Path))
+	// expect the id in the URI
+	reg := regexp.MustCompile(`/([0-9]+)`)
+	g := reg.FindAllStringSubmatch(r.URL.Path, -1)
+
+	if len(g) != 1 {
+		l.Info("Invalid URI more than one id")
+		http.Error(w, "Invalid URI", http.StatusBadRequest)
+		return
+	}
+
+	if len(g[0]) != 2 {
+		l.Info("Invalid URI more than one capture group")
+		http.Error(w, "Invalid URI", http.StatusBadRequest)
+		return
+	}
+
+	idString := g[0][1]
+	id, err := strconv.Atoi(idString)
+	if err != nil {
+		l.Info("Invalid URI unable to convert to number", zap.Any("", idString))
+		http.Error(w, "Invalid URI", http.StatusBadRequest)
+		return
+	}
+
+	err = prod.FromJSON(r.Body)
+	if err != nil {
+		http.Error(w, "Unable to unmarshal json", http.StatusBadRequest)
+	}
+
+	err = data.UpdateProduct(id, prod)
+	if err == data.ErrProductNotFound {
+		http.Error(w, "Product not found", http.StatusNotFound)
+		return
+	}
+
+	if err != nil {
+		http.Error(w, "Product not found", http.StatusInternalServerError)
+		return
 	}
 }
 

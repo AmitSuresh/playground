@@ -24,9 +24,10 @@ func setupServer() (*http.ServeMux, *zap.Logger) {
 
 	sm.Handle("/welcome", wh)
 	sm.Handle("/read", rh)
-	sm.Handle("/products", p)
+	sm.Handle("/products/", p)
 	return sm, l
 }
+
 func main() {
 	sm, l := setupServer()
 	s := &http.Server{
