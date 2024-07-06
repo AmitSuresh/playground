@@ -5,7 +5,7 @@ import (
 	"net/http"
 	"strconv"
 
-	"github.com/AmitSuresh/playground/playservices/data"
+	"github.com/AmitSuresh/playground/playservices/v5/data"
 	"github.com/gorilla/mux"
 	"go.uber.org/zap"
 )

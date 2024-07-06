@@ -7,8 +7,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/AmitSuresh/playground/playservices/data"
-	"github.com/AmitSuresh/playground/playservices/handlers"
+	"github.com/AmitSuresh/playground/playservices/v5/data"
+	"github.com/AmitSuresh/playground/playservices/v5/handlers"
 	"go.uber.org/zap"
 )
 

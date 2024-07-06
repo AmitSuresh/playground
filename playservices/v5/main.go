@@ -8,7 +8,7 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/AmitSuresh/playground/playservices/handlers"
+	"github.com/AmitSuresh/playground/playservices/v5/handlers"
 	"github.com/gorilla/mux"
 	"go.uber.org/zap"
 )
