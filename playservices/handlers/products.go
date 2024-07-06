@@ -3,10 +3,10 @@ package handlers
 import (
 	"context"
 	"net/http"
-	"regexp"
 	"strconv"
 
 	"github.com/AmitSuresh/playground/playservices/data"
+	"github.com/gorilla/mux"
 	"go.uber.org/zap"
 )
 
@@ -28,41 +28,17 @@ func NewProducts(l *zap.Logger) *Products {
 	return &Products{l}
 }
 
-// ServeHTTP is the main entry point for the handler and staisfies the http.Handler
-// interface
-func (p *Products) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+// getProducts returns the products from the data store
+func (p *Products) GetProducts(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	//log, _ := zap.NewProduction()
-	log := p.l
-	ctx = InjectLogger(ctx, log)
-	log.Info("Handle GET Products", zap.Any(string(logKey), ctx.Value(logKey)))
-	ctx = InjectResponseWriter(ctx, w)
-	log.Info("rwKey", zap.Any(string(rwKey), ctx.Value(rwKey)))
-	ctx = InjectRequest(ctx, r)
-	log.Info("requestKey", zap.Any(string(requestKey), loggableRequest(r)))
-
-	switch r.Method {
-	case http.MethodGet:
-		p.getProducts(ctx)
-	case http.MethodPost:
-		p.addProducts(ctx)
-	case http.MethodPut:
-		p.updateProducts(ctx)
-	default:
-		w.WriteHeader(http.StatusMethodNotAllowed)
-
-	}
-}
-
-// getProducts returns the products from the data store
-func (p *Products) getProducts(ctx context.Context) {
+	ctx = InjectLogger(ctx, p.l)
+	p.l.Info("Handle GET Products", zap.Any(string(logKey), ctx.Value(logKey)))
 
 	// fetch the products from the datastore
 	lp := data.GetProducts()
 
-	l := GetLoggerFromContext(ctx)
-	w := GetResponseWriterFromContext(ctx)
-	l.Info("from getProducts")
+	p.l.Info("from getProducts")
 	// serialize the list to JSON
 	err := lp.ToJSON(w)
 	if err != nil {
@@ -70,56 +46,39 @@ func (p *Products) getProducts(ctx context.Context) {
 	}
 }
 
-func (p *Products) addProducts(ctx context.Context) {
+func (p *Products) AddProduct(w http.ResponseWriter, r *http.Request) {
+
+	ctx := r.Context()
 
 	product := &data.Product{}
 
-	l := GetLoggerFromContext(ctx)
-	r := GetRequestFromContext(ctx)
-	w := GetResponseWriterFromContext(ctx)
+	//log, _ := zap.NewProduction()
+	ctx = InjectLogger(ctx, p.l)
+	p.l.Info("Handle GET Products", zap.Any(string(logKey), ctx.Value(logKey)))
 
-	l.Info("from addProducts")
+	p.l.Info("from addProducts")
 	err := product.FromJSON(r.Body)
 	if err != nil {
 		http.Error(w, "Unable to unmarshal json", http.StatusInternalServerError)
 	}
-	l.Info("Parsed product", zap.Any("product", product))
+	p.l.Info("Parsed product", zap.Any("product", product))
 	data.AddProduct(product)
 }
 
-func (p Products) updateProducts(ctx context.Context) {
+func (p Products) UpdateProduct(w http.ResponseWriter, r *http.Request) {
 
-	l := GetLoggerFromContext(ctx)
-	r := GetRequestFromContext(ctx)
-	w := GetResponseWriterFromContext(ctx)
-	prod := &data.Product{}
-
-	l.Info("from updateProducts")
-
-	l.Info("PUT", zap.Any("", r.URL.Path))
-	// expect the id in the URI
-	reg := regexp.MustCompile(`/([0-9]+)`)
-	g := reg.FindAllStringSubmatch(r.URL.Path, -1)
-
-	if len(g) != 1 {
-		l.Info("Invalid URI more than one id")
-		http.Error(w, "Invalid URI", http.StatusBadRequest)
-		return
-	}
-
-	if len(g[0]) != 2 {
-		l.Info("Invalid URI more than one capture group")
-		http.Error(w, "Invalid URI", http.StatusBadRequest)
-		return
-	}
-
-	idString := g[0][1]
-	id, err := strconv.Atoi(idString)
+	vars := mux.Vars(r)
+	id, err := strconv.Atoi(vars["id"])
 	if err != nil {
-		l.Info("Invalid URI unable to convert to number", zap.Any("", idString))
-		http.Error(w, "Invalid URI", http.StatusBadRequest)
-		return
+		http.Error(w, "unable to convert id", http.StatusBadRequest)
 	}
+	ctx := r.Context()
+	//log, _ := zap.NewProduction()
+	ctx = InjectLogger(ctx, p.l)
+	p.l.Info("Handle PUT Products", zap.Any(string(logKey), ctx.Value(logKey)))
+
+	p.l.Info("from updateProducts")
+	prod := &data.Product{}
 
 	err = prod.FromJSON(r.Body)
 	if err != nil {
