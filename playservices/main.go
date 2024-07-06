@@ -28,10 +28,13 @@ func setupServer() (*mux.Router, *zap.Logger) {
 	getRouter.HandleFunc("/products", p.GetProducts)
 
 	PUTRouter := sm.Methods(http.MethodPut).Subrouter()
-	PUTRouter.HandleFunc("/product/{id:[0-9]+}", p.UpdateProduct)
+	PUTRouter.HandleFunc("/products/{id:[0-9]+}", p.UpdateProduct)
+	PUTRouter.Use(p.MiddlewareValidateProduct)
 
 	POSTRouter := sm.Methods(http.MethodPost).Subrouter()
-	POSTRouter.HandleFunc("/product", p.AddProduct)
+	POSTRouter.HandleFunc("/products", p.AddProduct)
+	POSTRouter.Use(p.MiddlewareValidateProduct)
+
 	/*
 		sm.Handle("/welcome", wh)
 		sm.Handle("/read", rh)
