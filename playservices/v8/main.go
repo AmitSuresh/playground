@@ -8,8 +8,8 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/AmitSuresh/playground/playservices/v7/data"
-	"github.com/AmitSuresh/playground/playservices/v7/handlers"
+	"github.com/AmitSuresh/playground/playservices/v8/data"
+	"github.com/AmitSuresh/playground/playservices/v8/handlers"
 	"github.com/go-openapi/runtime/middleware"
 	"github.com/gorilla/mux"
 	"go.uber.org/zap"

@@ -3,7 +3,7 @@ package handlers
 import (
 	"net/http"
 
-	"github.com/AmitSuresh/playground/playservices/v7/data"
+	"github.com/AmitSuresh/playground/playservices/v8/data"
 	"go.uber.org/zap"
 )
 
@@ -16,6 +16,8 @@ import (
 func (p *ProductsHandler) ListAll(w http.ResponseWriter, r *http.Request) {
 	//log, _ := zap.NewProduction()
 	p.l.Info("[INFO] Handle GET Products")
+
+	w.Header().Add("Content-Type", "application/json")
 
 	// fetch the products from the datastore
 	lp := data.GetProducts()
