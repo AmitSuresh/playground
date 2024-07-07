@@ -28,7 +28,7 @@ func setupServer() (*mux.Router, *zap.Logger) {
 	// handlers for API
 	getR := sm.Methods(http.MethodGet).Subrouter()
 	getR.HandleFunc("/products", ph.ListAll)
-	getR.HandleFunc("/products/{id:[0-9]+}", ph.ListSingle)
+	getR.HandleFunc("/products/{id:[0-9]+}", ph.listSingleProduct)
 
 	putR := sm.Methods(http.MethodPut).Subrouter()
 	putR.HandleFunc("/products", ph.Update)

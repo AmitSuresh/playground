@@ -27,14 +27,14 @@ func (p *ProductsHandler) ListAll(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-// swagger:route GET /products/{id} products listSingle
+// swagger:route GET /products/{id} products listSingleProduct
 // Return a list of products from the database
 // responses:
 //	200: productResponse
 //	404: errorResponse
 
 // ListSingle handles GET requests
-func (p *ProductsHandler) ListSingle(rw http.ResponseWriter, r *http.Request) {
+func (p *ProductsHandler) listSingleProduct(rw http.ResponseWriter, r *http.Request) {
 	id := getProductID(r)
 
 	p.l.Info("[DEBUG]", zap.Any("get record id ", id))
