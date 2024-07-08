@@ -14,7 +14,6 @@ require (
 	github.com/gorilla/mux v1.8.1
 	go.uber.org/zap v1.27.0
 	google.golang.org/grpc v1.65.0
-	google.golang.org/grpc/examples v0.0.0-20240708204656-bb49a8868a2a
 )
 
 require (
@@ -42,6 +41,7 @@ require (
 	go.mongodb.org/mongo-driver v1.16.0 // indirect
 	go.opentelemetry.io/otel v1.27.0 // indirect
 	go.opentelemetry.io/otel/metric v1.27.0 // indirect
+	go.opentelemetry.io/otel/sdk v1.27.0 // indirect
 	go.opentelemetry.io/otel/trace v1.27.0 // indirect
 	go.uber.org/multierr v1.11.0 // indirect
 	golang.org/x/net v0.26.0 // indirect
