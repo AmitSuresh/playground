@@ -7,8 +7,8 @@ service Currency {
 }
 
 message RateRequest {
-    string base = 1;
-    string destination = 2;
+    Currencies base = 1;
+    Currencies destination = 2;
 }
 
 message RateResponse {
