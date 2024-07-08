@@ -48,7 +48,7 @@ func setupGRPCClient(logger *zap.Logger) protos.CurrencyClient {
 		RootCAs:      caCertPool,
 		ServerName:   "localhost", // Server's Common Name (CN)
 	})
-	conn, err := grpc.Dial("localhost:9092", grpc.WithTransportCredentials(creds))
+	conn, err := grpc.NewClient("localhost:9092", grpc.WithTransportCredentials(creds))
 	if err != nil {
 		logger.Fatal("failed to dial gRPC server", zap.Error(err))
 	}
