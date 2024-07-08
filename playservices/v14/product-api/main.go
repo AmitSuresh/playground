@@ -2,13 +2,14 @@ package main
 
 import (
 	"context"
-	"crypto/tls"
-	"crypto/x509"
+	"flag"
 	"net/http"
 	"os"
 	"os/signal"
 	"syscall"
 	"time"
+
+	"log"
 
 	protos "github.com/AmitSuresh/playground/playservices/v14/currency/protos/currency"
 	"github.com/AmitSuresh/playground/playservices/v14/product-api/data"
@@ -18,44 +19,16 @@ import (
 	"github.com/gorilla/mux"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
-	"google.golang.org/grpc/credentials"
+	"google.golang.org/grpc/credentials/insecure"
 )
 
 const (
 	shutdownTime   = 6 * time.Second
-	grpcServerAddr = ":8080"
+	grpcServerAddr = "localhost:8080"
 	httpServerAddr = ":9090"
 )
 
-func setupGRPCClient(logger *zap.Logger) protos.CurrencyClient {
-	// Load client TLS certificates
-	cert, err := tls.LoadX509KeyPair("client-cert.pem", "client-key.pem")
-	if err != nil {
-		logger.Fatal("failed to load client TLS certificates", zap.Error(err))
-	}
-
-	// Create a certificate pool from the server CA certificate
-	caCert, err := os.ReadFile("ca-cert.pem")
-	if err != nil {
-		logger.Fatal("failed to read CA certificate", zap.Error(err))
-	}
-	caCertPool := x509.NewCertPool()
-	caCertPool.AppendCertsFromPEM(caCert)
-
-	// Dial the gRPC server with transport credentials
-	creds := credentials.NewTLS(&tls.Config{
-		Certificates: []tls.Certificate{cert},
-		RootCAs:      caCertPool,
-		ServerName:   "localhost", // Server's Common Name (CN)
-	})
-	conn, err := grpc.NewClient("localhost:9092", grpc.WithTransportCredentials(creds))
-	if err != nil {
-		logger.Fatal("failed to dial gRPC server", zap.Error(err))
-	}
-
-	// Return the gRPC client
-	return protos.NewCurrencyClient(conn)
-}
+var serverAddr = flag.String("addr", "localhost:50051", "The server address in the format of host:port")
 
 func setupHTTPServer(logger *zap.Logger, cc protos.CurrencyClient) *http.Server {
 	v := data.NewValidation()
@@ -95,14 +68,23 @@ func setupHTTPServer(logger *zap.Logger, cc protos.CurrencyClient) *http.Server 
 }
 
 func main() {
+	flag.Parse()
+	var opts []grpc.DialOption
+	opts = append(opts, grpc.WithTransportCredentials(insecure.NewCredentials()))
+
+	conn, err := grpc.NewClient(*serverAddr, opts...)
+	if err != nil {
+		log.Fatalf("fail to dial: %v", err)
+	}
+	defer conn.Close()
 	logger, _ := zap.NewProduction()
 	defer logger.Sync()
 
-	// Setup gRPC client
-	cc := setupGRPCClient(logger)
+	client := protos.NewCurrencyClient(conn)
+	//cc := setupGRPCClient(logger)
 
 	// Setup HTTP server
-	httpServer := setupHTTPServer(logger, cc)
+	httpServer := setupHTTPServer(logger, client)
 
 	// Start HTTP server
 	go func() {
