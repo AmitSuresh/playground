@@ -21,13 +21,13 @@ func main() {
 	reflection.Register(gs)
 
 	// Define the gRPC server options (e.g., port)
-	listener, err := net.Listen("tcp", ":8080")
+	listener, err := net.Listen("tcp", ":9092")
 	if err != nil {
 		log.Error("[ERROR]", zap.Any("unable to listen", err))
 	}
 
 	// Start the gRPC server
-	log.Info("[INFO] Starting gRPC server on port 8080...")
+	log.Info("[INFO] Starting gRPC server on port 9092...")
 	if err := gs.Serve(listener); err != nil {
 		log.Error("[ERROR]", zap.Any("failed to serve", err))
 	}

@@ -20,6 +20,7 @@ import (
 	"net/http"
 	"strconv"
 
+	protos "github.com/AmitSuresh/playground/playservices/v14/currency/protos/currency"
 	"github.com/AmitSuresh/playground/playservices/v14/product-api/data"
 	"github.com/gorilla/mux"
 	"go.uber.org/zap"
@@ -56,13 +57,14 @@ type ValidationError struct {
 
 // Products is a http.Handler
 type ProductsHandler struct {
-	l *zap.Logger
-	v *data.Validation
+	l  *zap.Logger
+	v  *data.Validation
+	cc protos.CurrencyClient
 }
 
 // NewProducts returns a new products handler with the given logger
-func NewProducts(l *zap.Logger, v *data.Validation) *ProductsHandler {
-	return &ProductsHandler{l, v}
+func NewProducts(l *zap.Logger, v *data.Validation, cc protos.CurrencyClient) *ProductsHandler {
+	return &ProductsHandler{l, v, cc}
 }
 
 func loggableRequest(r *http.Request) map[string]interface{} {

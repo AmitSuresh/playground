@@ -1,8 +1,10 @@
 package handlers
 
 import (
+	"context"
 	"net/http"
 
+	protos "github.com/AmitSuresh/playground/playservices/v14/currency/protos/currency"
 	"github.com/AmitSuresh/playground/playservices/v14/product-api/data"
 	"go.uber.org/zap"
 )
@@ -59,6 +61,19 @@ func (p *ProductsHandler) ListSingleProduct(rw http.ResponseWriter, r *http.Requ
 		data.ToJSON(&GenericError{Message: err.Error()}, rw)
 		return
 	}
+
+	rr := &protos.RateRequest{
+		Base:        protos.Currencies(protos.Currencies_value["EUR"]),
+		Destination: protos.Currencies(protos.Currencies_value["GBP"]),
+	}
+	presp, err := p.cc.GetRate(context.Background(), rr)
+	if err != nil {
+		p.l.Error("[ERROR]", zap.Any("error getting new rate ", err))
+		data.ToJSON(&GenericError{Message: err.Error()}, rw)
+		return
+	}
+
+	prod.Price = presp.Rate * prod.Price
 
 	err = data.ToJSON(prod, rw)
 	if err != nil {
