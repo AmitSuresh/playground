@@ -2,8 +2,6 @@ package main
 
 import (
 	"context"
-	"crypto/tls"
-	"crypto/x509"
 	"net/http"
 	"os"
 	"os/signal"
@@ -18,37 +16,18 @@ import (
 	"github.com/gorilla/mux"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
-	"google.golang.org/grpc/credentials"
+	"google.golang.org/grpc/credentials/insecure"
 )
 
 const (
 	shutdownTime   = 6 * time.Second
-	grpcServerAddr = ":8080"
+	grpcServerAddr = "localhost:8080"
 	httpServerAddr = ":9090"
 )
 
 func setupGRPCClient(logger *zap.Logger) protos.CurrencyClient {
-	// Load client TLS certificates
-	cert, err := tls.LoadX509KeyPair("client-cert.pem", "client-key.pem")
-	if err != nil {
-		logger.Fatal("failed to load client TLS certificates", zap.Error(err))
-	}
 
-	// Create a certificate pool from the server CA certificate
-	caCert, err := os.ReadFile("ca-cert.pem")
-	if err != nil {
-		logger.Fatal("failed to read CA certificate", zap.Error(err))
-	}
-	caCertPool := x509.NewCertPool()
-	caCertPool.AppendCertsFromPEM(caCert)
-
-	// Dial the gRPC server with transport credentials
-	creds := credentials.NewTLS(&tls.Config{
-		Certificates: []tls.Certificate{cert},
-		RootCAs:      caCertPool,
-		ServerName:   "localhost", // Server's Common Name (CN)
-	})
-	conn, err := grpc.NewClient("localhost:9092", grpc.WithTransportCredentials(creds))
+	conn, err := grpc.NewClient(grpcServerAddr, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
 		logger.Fatal("failed to dial gRPC server", zap.Error(err))
 	}
