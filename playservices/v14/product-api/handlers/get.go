@@ -3,6 +3,7 @@ package handlers
 import (
 	"context"
 	"net/http"
+	"time"
 
 	protos "github.com/AmitSuresh/playground/playservices/v14/currency/protos/currency"
 	"github.com/AmitSuresh/playground/playservices/v14/product-api/data"
@@ -66,7 +67,8 @@ func (p *ProductsHandler) ListSingleProduct(rw http.ResponseWriter, r *http.Requ
 		Base:        protos.Currencies(protos.Currencies_value["EUR"]),
 		Destination: protos.Currencies(protos.Currencies_value["GBP"]),
 	}
-	presp, err := p.cc.GetRate(context.Background(), rr)
+	ctx, _ := context.WithTimeout(r.Context(), 10*time.Second)
+	presp, err := p.cc.GetRate(ctx, rr)
 	if err != nil {
 		p.l.Error("[ERROR]", zap.Any("error getting new rate ", err))
 		data.ToJSON(&GenericError{Message: err.Error()}, rw)

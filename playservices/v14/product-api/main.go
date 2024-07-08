@@ -2,11 +2,14 @@ package main
 
 import (
 	"context"
+	"flag"
 	"net/http"
 	"os"
 	"os/signal"
 	"syscall"
 	"time"
+
+	"log"
 
 	protos "github.com/AmitSuresh/playground/playservices/v14/currency/protos/currency"
 	"github.com/AmitSuresh/playground/playservices/v14/product-api/data"
@@ -25,16 +28,7 @@ const (
 	httpServerAddr = ":9090"
 )
 
-func setupGRPCClient(logger *zap.Logger) protos.CurrencyClient {
-
-	conn, err := grpc.NewClient(grpcServerAddr, grpc.WithTransportCredentials(insecure.NewCredentials()))
-	if err != nil {
-		logger.Fatal("failed to dial gRPC server", zap.Error(err))
-	}
-
-	// Return the gRPC client
-	return protos.NewCurrencyClient(conn)
-}
+var serverAddr = flag.String("addr", "localhost:50051", "The server address in the format of host:port")
 
 func setupHTTPServer(logger *zap.Logger, cc protos.CurrencyClient) *http.Server {
 	v := data.NewValidation()
@@ -74,14 +68,23 @@ func setupHTTPServer(logger *zap.Logger, cc protos.CurrencyClient) *http.Server 
 }
 
 func main() {
+	flag.Parse()
+	var opts []grpc.DialOption
+	opts = append(opts, grpc.WithTransportCredentials(insecure.NewCredentials()))
+
+	conn, err := grpc.NewClient(*serverAddr, opts...)
+	if err != nil {
+		log.Fatalf("fail to dial: %v", err)
+	}
+	defer conn.Close()
 	logger, _ := zap.NewProduction()
 	defer logger.Sync()
 
-	// Setup gRPC client
-	cc := setupGRPCClient(logger)
+	client := protos.NewCurrencyClient(conn)
+	//cc := setupGRPCClient(logger)
 
 	// Setup HTTP server
-	httpServer := setupHTTPServer(logger, cc)
+	httpServer := setupHTTPServer(logger, client)
 
 	// Start HTTP server
 	go func() {
