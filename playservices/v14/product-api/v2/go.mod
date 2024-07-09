@@ -3,7 +3,7 @@ module github.com/AmitSuresh/playground/playservices/v14/product-api/v2
 go 1.22.4
 
 require (
-	github.com/AmitSuresh/playground/playservices/v14/currency v0.0.0
+	github.com/AmitSuresh/playground/playservices/v14/currency v1.1.0
 	github.com/go-openapi/runtime v0.28.0
 	github.com/go-playground/validator v9.31.0+incompatible
 	github.com/gorilla/handlers v1.5.2
@@ -46,5 +46,3 @@ require (
 	gopkg.in/go-playground/assert.v1 v1.2.1 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
-
-replace github.com/AmitSuresh/playground/playservices/v14/currency => ../../currency
