@@ -5,7 +5,7 @@ import (
 	"net/http"
 	"time"
 
-	protos "github.com/AmitSuresh/playground/playservices/v14/currency/protos/currency"
+	protos "github.com/AmitSuresh/playground/playservices/v14/currency"
 	"github.com/AmitSuresh/playground/playservices/v14/product-api/v2/data"
 	"go.uber.org/zap"
 )
