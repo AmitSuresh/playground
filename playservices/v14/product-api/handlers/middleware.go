@@ -24,7 +24,7 @@ func (p *ProductsHandler) MiddlewareValidateProduct(next http.Handler) http.Hand
 			//validate the product
 			errs := p.v.Validate(prod)
 			if len(errs) != 0 {
-				p.l.Error("[ERROR]", zap.Any("validating product", errs))
+				p.l.Error("validating product", zap.Any("", errs))
 
 				// return the validation messages as an array
 				w.WriteHeader(http.StatusUnprocessableEntity)
@@ -33,7 +33,7 @@ func (p *ProductsHandler) MiddlewareValidateProduct(next http.Handler) http.Hand
 			} else {
 				err = data.ToJSON(prod, w)
 				if err != nil {
-					p.l.Error("[ERROR] error writing success message", zap.Error(err))
+					p.l.Error("error writing success message", zap.Error(err))
 					http.Error(w, fmt.Sprintf("writing success message: %s", err), http.StatusBadRequest)
 					return
 				}
@@ -44,7 +44,7 @@ func (p *ProductsHandler) MiddlewareValidateProduct(next http.Handler) http.Hand
 			ctx = InjectLogger(ctx, p.l)
 			r = r.WithContext(ctx)
 
-			p.l.Info("[DEBUG] from middleware", zap.Any("request Info: ", loggableRequest(r)))
+			p.l.Debug("from middleware", zap.Any("request Info: ", loggableRequest(r)))
 
 			// Call the next handler, which can be another middleware in the chain, or the final handler.
 			next.ServeHTTP(w, r)

@@ -18,15 +18,18 @@ import (
 // ListAll handles GET requests and returns all current products
 func (p *ProductsHandler) ListAll(w http.ResponseWriter, r *http.Request) {
 	//log, _ := zap.NewProduction()
-	p.l.Info("[INFO] Handle GET Products")
+	p.l.Debug("Handle GET Products")
 
 	w.Header().Add("Content-Type", "application/json")
 
+	curr := r.URL.Query().Get("currency")
 	// fetch the products from the datastore
-	lp := data.GetProducts()
-
+	lp, err := p.db.GetProducts(curr)
+	if err != nil {
+		p.l.Error("unable to fetch products", zap.Error(err))
+	}
 	// serialize the list to JSON
-	err := data.ToJSON(lp, w)
+	err = data.ToJSON(lp, w)
 	if err != nil {
 		http.Error(w, "Unable to marshal json", http.StatusInternalServerError)
 	}
@@ -42,21 +45,22 @@ func (p *ProductsHandler) ListAll(w http.ResponseWriter, r *http.Request) {
 func (p *ProductsHandler) ListSingleProduct(rw http.ResponseWriter, r *http.Request) {
 	id := getProductID(r)
 
-	p.l.Info("[DEBUG]", zap.Any("get record id ", id))
+	p.l.Debug("[DEBUG]", zap.Any("get record id ", id))
 
-	prod, err := data.GetProductByID(id)
+	curr := r.URL.Query().Get("currency")
+	prod, err := p.db.GetProductByID(id, curr)
 
 	switch err {
 	case nil:
 
 	case data.ErrProductNotFound:
-		p.l.Info("[ERROR]", zap.Any("fetching product ", err))
+		p.l.Error("fetching product ", zap.Error(err))
 
 		rw.WriteHeader(http.StatusNotFound)
 		data.ToJSON(&GenericError{Message: err.Error()}, rw)
 		return
 	default:
-		p.l.Info("[ERROR]", zap.Any("fetching product ", err))
+		p.l.Error("fetching product ", zap.Error(err))
 
 		rw.WriteHeader(http.StatusInternalServerError)
 		data.ToJSON(&GenericError{Message: err.Error()}, rw)
@@ -70,7 +74,7 @@ func (p *ProductsHandler) ListSingleProduct(rw http.ResponseWriter, r *http.Requ
 	ctx, _ := context.WithTimeout(r.Context(), 10*time.Second)
 	presp, err := p.cc.GetRate(ctx, rr)
 	if err != nil {
-		p.l.Error("[ERROR]", zap.Any("error getting new rate ", err))
+		p.l.Error("error getting new rate", zap.Error(err))
 		data.ToJSON(&GenericError{Message: err.Error()}, rw)
 		return
 	}
@@ -80,6 +84,6 @@ func (p *ProductsHandler) ListSingleProduct(rw http.ResponseWriter, r *http.Requ
 	err = data.ToJSON(prod, rw)
 	if err != nil {
 		// we should never be here but log the error just incase
-		p.l.Info("[ERROR]", zap.Any("serializing product ", err))
+		p.l.Error("serializing product", zap.Error(err))
 	}
 }

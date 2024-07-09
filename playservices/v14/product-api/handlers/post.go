@@ -21,9 +21,9 @@ func (p *ProductsHandler) Create(w http.ResponseWriter, r *http.Request) {
 	// fetch the product from the context
 	prod := GetProductFromContext(r.Context())
 
-	p.l.Info("[DEBUG]", zap.Any("inserting a new product", prod))
+	p.l.Debug("inserting a new product", zap.Any("", prod))
 
-	data.AddProduct(prod)
+	p.db.AddProduct(prod)
 
 	data.ToJSON("inserted a new product successfully", w)
 	w.WriteHeader(http.StatusOK)
