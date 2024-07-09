@@ -24,11 +24,10 @@ import (
 
 const (
 	shutdownTime   = 6 * time.Second
-	grpcServerAddr = "localhost:8080"
-	httpServerAddr = ":9090"
+	httpServerAddr = "localhost:9090"
 )
 
-var serverAddr = flag.String("addr", "localhost:50051", "The server address in the format of host:port")
+var serverAddr = flag.String("addr", "localhost:9092", "The server address in the format of host:port")
 
 func setupHTTPServer(logger *zap.Logger, cc protos.CurrencyClient) *http.Server {
 	v := data.NewValidation()
@@ -69,19 +68,19 @@ func setupHTTPServer(logger *zap.Logger, cc protos.CurrencyClient) *http.Server 
 
 func main() {
 	flag.Parse()
+	logger, _ := zap.NewProduction()
+	defer logger.Sync()
+
 	var opts []grpc.DialOption
 	opts = append(opts, grpc.WithTransportCredentials(insecure.NewCredentials()))
-
+	logger.Info("[INFO]", zap.Any("serverAddr", *serverAddr))
 	conn, err := grpc.NewClient(*serverAddr, opts...)
 	if err != nil {
 		log.Fatalf("fail to dial: %v", err)
 	}
 	defer conn.Close()
-	logger, _ := zap.NewProduction()
-	defer logger.Sync()
 
 	client := protos.NewCurrencyClient(conn)
-	//cc := setupGRPCClient(logger)
 
 	// Setup HTTP server
 	httpServer := setupHTTPServer(logger, client)
