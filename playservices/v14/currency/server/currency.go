@@ -10,6 +10,7 @@ import (
 // CurrencyServerHandler implements protos.CurrencyServer.
 type CurrencyServerHandler struct {
 	logger *zap.Logger
+	protos.UnimplementedCurrencyServer
 }
 
 // GetCurrencyServerHandler creates a new instance of CurrencyServerHandler.

@@ -1,6 +1,8 @@
 package main
 
 import (
+	"flag"
+	"fmt"
 	"net"
 
 	protos "github.com/AmitSuresh/playground/playservices/v14/currency/protos/currency"
@@ -10,7 +12,12 @@ import (
 	"google.golang.org/grpc/reflection"
 )
 
+var (
+	port = flag.Int("port", 9092, "The server port")
+)
+
 func main() {
+	flag.Parse()
 	log, _ := zap.NewProduction()
 
 	gs := grpc.NewServer()
@@ -21,7 +28,7 @@ func main() {
 	reflection.Register(gs)
 
 	// Define the gRPC server options (e.g., port)
-	listener, err := net.Listen("tcp", ":9092")
+	listener, err := net.Listen("tcp", fmt.Sprintf("localhost:%d", *port))
 	if err != nil {
 		log.Error("[ERROR]", zap.Any("unable to listen", err))
 	}
