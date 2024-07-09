@@ -29,16 +29,19 @@ const (
 
 var serverAddr = flag.String("addr", "localhost:9092", "The server address in the format of host:port")
 
-func setupHTTPServer(logger *zap.Logger, cc protos.CurrencyClient) *http.Server {
+func setupHTTPServer(l *zap.Logger, cc protos.CurrencyClient) *http.Server {
 	v := data.NewValidation()
-	ph := handlers.NewProducts(logger, v, cc)
+	db := data.GetProductsDB(cc, l)
+	ph := handlers.NewProducts(l, v, cc, db)
 
 	sm := mux.NewRouter()
 
 	// Handlers for API endpoints
 	getR := sm.Methods(http.MethodGet).Subrouter()
+	getR.HandleFunc("/products", ph.ListAll).Queries("currency", "{[A-Z{3}]}")
 	getR.HandleFunc("/products", ph.ListAll)
 	getR.HandleFunc("/products/{id:[0-9]+}", ph.ListSingleProduct)
+	getR.HandleFunc("/products/{id:[0-9]+}", ph.ListSingleProduct).Queries("currency", "{[A-Z{3}]}")
 
 	putR := sm.Methods(http.MethodPut).Subrouter()
 	putR.HandleFunc("/products", ph.Update)
@@ -63,17 +66,18 @@ func setupHTTPServer(logger *zap.Logger, cc protos.CurrencyClient) *http.Server 
 		IdleTimeout:  120 * time.Second,
 		ReadTimeout:  5 * time.Second,
 		WriteTimeout: 4 * time.Second,
+		ErrorLog:     zap.NewStdLog(l),
 	}
 }
 
 func main() {
 	flag.Parse()
-	logger, _ := zap.NewProduction()
-	defer logger.Sync()
+	l, _ := zap.NewProduction()
+	defer l.Sync()
 
 	var opts []grpc.DialOption
 	opts = append(opts, grpc.WithTransportCredentials(insecure.NewCredentials()))
-	logger.Info("[INFO]", zap.Any("serverAddr", *serverAddr))
+	l.Info("[INFO]", zap.Any("serverAddr", *serverAddr))
 	conn, err := grpc.NewClient(*serverAddr, opts...)
 	if err != nil {
 		log.Fatalf("fail to dial: %v", err)
@@ -83,13 +87,13 @@ func main() {
 	client := protos.NewCurrencyClient(conn)
 
 	// Setup HTTP server
-	httpServer := setupHTTPServer(logger, client)
+	httpServer := setupHTTPServer(l, client)
 
 	// Start HTTP server
 	go func() {
-		logger.Info("Starting HTTP server", zap.String("address", httpServer.Addr))
+		l.Info("Starting HTTP server", zap.String("address", httpServer.Addr))
 		if err := httpServer.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-			logger.Fatal("error starting HTTP server", zap.Error(err))
+			l.Fatal("error starting HTTP server", zap.Error(err))
 		}
 	}()
 
@@ -98,7 +102,7 @@ func main() {
 	signal.Notify(signalChan, os.Interrupt, syscall.SIGTERM)
 	<-signalChan
 
-	logger.Info("Shutdown signal received, shutting down servers...")
+	l.Info("Shutdown signal received, shutting down servers...")
 
 	// Create context with timeout
 	ctx, cancel := context.WithTimeout(context.Background(), shutdownTime)
@@ -106,8 +110,8 @@ func main() {
 
 	// Shutdown HTTP server
 	if err := httpServer.Shutdown(ctx); err != nil {
-		logger.Error("error during HTTP server shutdown", zap.Error(err))
+		l.Error("error during HTTP server shutdown", zap.Error(err))
 	}
 
-	logger.Info("HTTP server shutdown complete.")
+	l.Info("HTTP server shutdown complete.")
 }

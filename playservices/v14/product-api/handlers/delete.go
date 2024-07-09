@@ -20,11 +20,11 @@ func (p *ProductsHandler) Delete(w http.ResponseWriter, r *http.Request) {
 
 	id := getProductID(r)
 
-	p.l.Info("[DEBUG]", zap.Any("deleting record id", id))
+	p.l.Debug("deleting record", zap.Any("id:", id))
 
-	err := data.DeleteProduct(id)
+	err := p.db.DeleteProduct(id)
 	if err == data.ErrProductNotFound {
-		p.l.Error("[ERROR]", zap.Any("deleting record id does not exist", err))
+		p.l.Error("deleting record id does not exist", zap.Error(err))
 
 		w.WriteHeader(http.StatusNotFound)
 		data.ToJSON(&GenericError{Message: err.Error()}, w)
@@ -32,7 +32,7 @@ func (p *ProductsHandler) Delete(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err != nil {
-		p.l.Error("[ERROR]", zap.Any("deleting record", err))
+		p.l.Error("deleting record", zap.Error(err))
 
 		w.WriteHeader(http.StatusInternalServerError)
 		data.ToJSON(&GenericError{Message: err.Error()}, w)

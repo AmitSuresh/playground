@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net"
 
+	"github.com/AmitSuresh/playground/playservices/v14/currency/data"
 	protos "github.com/AmitSuresh/playground/playservices/v14/currency/protos/currency"
 	"github.com/AmitSuresh/playground/playservices/v14/currency/server"
 	"go.uber.org/zap"
@@ -20,8 +21,12 @@ func main() {
 	flag.Parse()
 	log, _ := zap.NewProduction()
 
+	erhandler, err := data.GetExchangeRatesHandler(log)
+	if err != nil {
+		log.Error("error creating new handler", zap.Error(err))
+	}
 	gs := grpc.NewServer()
-	csh := server.GetCurrencyServerHandler(log)
+	csh := server.GetCurrencyServerHandler(erhandler, log)
 
 	protos.RegisterCurrencyServer(gs, csh)
 
@@ -30,12 +35,12 @@ func main() {
 	// Define the gRPC server options (e.g., port)
 	listener, err := net.Listen("tcp", fmt.Sprintf("localhost:%d", *port))
 	if err != nil {
-		log.Error("[ERROR]", zap.Any("unable to listen", err))
+		log.Error("unable to listen", zap.Error(err))
 	}
 
 	// Start the gRPC server
-	log.Info("[INFO] Starting gRPC server on port 9092...")
+	log.Debug("Starting gRPC server on port 9092...")
 	if err := gs.Serve(listener); err != nil {
-		log.Error("[ERROR]", zap.Any("failed to serve", err))
+		log.Error("failed to serve", zap.Error(err))
 	}
 }

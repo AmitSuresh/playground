@@ -14,20 +14,34 @@ type ExchangeRatesHandler struct {
 	rates map[string]float64
 }
 
-func NewExchangeRatesHandler(log *zap.Logger) (*ExchangeRatesHandler, error) {
-	erh := &ExchangeRatesHandler{
+func GetExchangeRatesHandler(log *zap.Logger) (*ExchangeRatesHandler, error) {
+	e := &ExchangeRatesHandler{
 		l:     log,
 		rates: map[string]float64{},
 	}
-	err := erh.getRates()
+	err := e.getRates()
 
-	return erh, err
+	return e, err
 }
 
-func (erh ExchangeRatesHandler) getRates() error {
+func (e ExchangeRatesHandler) GetRates(base, dest string) (float64, error) {
+	br, ok := e.rates[base]
+	if !ok {
+		return 0, fmt.Errorf("rate not found for currency %s", base)
+	}
+
+	dr, ok := e.rates[dest]
+	if !ok {
+		return 0, fmt.Errorf("rate not found for currency %s", dest)
+	}
+
+	return br / dr, nil
+}
+
+func (e ExchangeRatesHandler) getRates() error {
 	resp, err := http.DefaultClient.Get("https://www.ecb.europa.eu/stats/eurofxref/eurofxref-daily.xml")
 	if err != nil {
-		erh.l.Error("[ERROR]", zap.Any("error attempting GET to URL", err))
+		e.l.Error("error attempting GET to URL", zap.Error(err))
 		return err
 	}
 	if resp.StatusCode != http.StatusOK {
@@ -40,11 +54,13 @@ func (erh ExchangeRatesHandler) getRates() error {
 	for _, v := range md.CubeData {
 		r, err := strconv.ParseFloat(v.Rate, 64)
 		if err != nil {
-			erh.l.Error("[ERROR]", zap.Any("error parsing float", err))
+			e.l.Error("error parsing float", zap.Error(err))
 			return err
 		}
-		erh.rates[v.Currency] = r
+		e.rates[v.Currency] = r
 	}
+
+	e.rates["EUR"] = 1
 
 	return nil
 }

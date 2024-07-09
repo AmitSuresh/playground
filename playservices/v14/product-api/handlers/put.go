@@ -23,18 +23,19 @@ func (p *ProductsHandler) Update(w http.ResponseWriter, r *http.Request) {
 
 	// fetch the product from the context
 	prod := GetProductFromContext(ctx)
-	p.l.Info("[DEBUG] Handle PUT Products", zap.Any(string(logKey), ctx.Value(logKey)))
-	p.l.Info("[DEBUG] product from context", zap.Any(string(productKey), ctx.Value(productKey)))
+	p.l.Debug("Handle PUT Products", zap.Any(string(logKey), ctx.Value(logKey)))
+	p.l.Debug("product from context", zap.Any(string(productKey), ctx.Value(productKey)))
 
-	err := data.UpdateProduct(prod)
+	err := p.db.UpdateProduct(prod)
 	if err == data.ErrProductNotFound {
 		http.Error(w, "product not found", http.StatusNotFound)
-		p.l.Error("[ERROR]", zap.Any("product not found", err))
+		p.l.Error("product not found", zap.Error(err))
 		return
 	}
 
 	if err != nil {
 		http.Error(w, "product not found", http.StatusInternalServerError)
+		p.l.Error("product not found", zap.Error(err))
 		return
 	}
 

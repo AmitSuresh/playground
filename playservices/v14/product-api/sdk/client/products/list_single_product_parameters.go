@@ -62,6 +62,13 @@ ListSingleProductParams contains all the parameters to send to the API endpoint
 */
 type ListSingleProductParams struct {
 
+	/* Currency.
+
+	     Currency used when returning the price of the product,
+	when not specified currency is returned in GBP.
+	*/
+	Currency *string
+
 	/* ID.
 
 	   The id of the product for which the operation relates
@@ -123,6 +130,17 @@ func (o *ListSingleProductParams) SetHTTPClient(client *http.Client) {
 	o.HTTPClient = client
 }
 
+// WithCurrency adds the currency to the list single product params
+func (o *ListSingleProductParams) WithCurrency(currency *string) *ListSingleProductParams {
+	o.SetCurrency(currency)
+	return o
+}
+
+// SetCurrency adds the currency to the list single product params
+func (o *ListSingleProductParams) SetCurrency(currency *string) {
+	o.Currency = currency
+}
+
 // WithID adds the id to the list single product params
 func (o *ListSingleProductParams) WithID(id int64) *ListSingleProductParams {
 	o.SetID(id)
@@ -141,6 +159,23 @@ func (o *ListSingleProductParams) WriteToRequest(r runtime.ClientRequest, reg st
 		return err
 	}
 	var res []error
+
+	if o.Currency != nil {
+
+		// query param Currency
+		var qrCurrency string
+
+		if o.Currency != nil {
+			qrCurrency = *o.Currency
+		}
+		qCurrency := qrCurrency
+		if qCurrency != "" {
+
+			if err := r.SetQueryParam("Currency", qCurrency); err != nil {
+				return err
+			}
+		}
+	}
 
 	// path param id
 	if err := r.SetPathParam("id", swag.FormatInt64(o.ID)); err != nil {

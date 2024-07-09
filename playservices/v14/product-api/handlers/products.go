@@ -60,11 +60,12 @@ type ProductsHandler struct {
 	l  *zap.Logger
 	v  *data.Validation
 	cc protos.CurrencyClient
+	db *data.ProductsDB
 }
 
 // NewProducts returns a new products handler with the given logger
-func NewProducts(l *zap.Logger, v *data.Validation, cc protos.CurrencyClient) *ProductsHandler {
-	return &ProductsHandler{l, v, cc}
+func NewProducts(l *zap.Logger, v *data.Validation, cc protos.CurrencyClient, db *data.ProductsDB) *ProductsHandler {
+	return &ProductsHandler{l, v, cc, db}
 }
 
 func loggableRequest(r *http.Request) map[string]interface{} {

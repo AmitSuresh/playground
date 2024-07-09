@@ -8,7 +8,7 @@ import (
 
 func TestNewRates(t *testing.T) {
 	l, _ := zap.NewProduction()
-	tr, err := NewExchangeRatesHandler(l)
+	tr, err := GetExchangeRatesHandler(l)
 	if err != nil {
 		t.Fatal(err)
 	}
