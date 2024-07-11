@@ -6,6 +6,8 @@ import (
 
 	protos "github.com/AmitSuresh/playground/playservices/v14/currency/protos/currency"
 	"go.uber.org/zap"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 )
 
 var ErrProductNotFound = fmt.Errorf("product not found")
@@ -43,12 +45,72 @@ type Product struct {
 type Products []*Product
 
 type ProductsDB struct {
-	currency protos.CurrencyClient
-	l        *zap.Logger
+	currencyClient protos.CurrencyClient
+	l              *zap.Logger
+	rates          map[string]float64
+	currSubClient  protos.Currency_SubscribeRatesClient
 }
 
 func GetProductsDB(c protos.CurrencyClient, l *zap.Logger) *ProductsDB {
-	return &ProductsDB{c, l}
+	db := &ProductsDB{c, l, make(map[string]float64), nil}
+
+	go db.handleUpdates()
+
+	return db
+}
+
+func (db *ProductsDB) handleUpdates() {
+	// Recv returns a StreamingRateResponse which can contain one of two messages
+	// RateResponse or an Error.
+	// We need to handle each case separately
+	subClient, err := db.currencyClient.SubscribeRates(context.Background())
+
+	if err != nil {
+		// handle connection errors
+		// this is normally terminal requires a reconnect
+		db.l.Error("unable to subscribe for rates", zap.Error(err))
+		return
+	}
+
+	db.currSubClient = subClient
+
+	for {
+		// Recv returns a StreamingRateResponse which can contain one of two messages
+		// RateResponse or an Error.
+		// We need to handle each case separately
+		sresp, err := db.currSubClient.Recv()
+
+		// handle connection errors
+		// this is normally terminal requires a reconnect
+		if err != nil {
+			db.l.Error("error receiving message", zap.Error(err))
+			return
+		}
+
+		// handle a returned error message
+		if ss := sresp.GetError(); ss != nil {
+			db.l.Error("error subscribing for rates", zap.Any("error", ss))
+			sre := status.FromProto(ss)
+			if sre.Code() == codes.InvalidArgument {
+				errDetails := ""
+				// get the RateRequest serialized in the error response
+				// Details is a collection but we are only returning a single item
+				if d := sre.Details(); len(d) > 0 {
+					db.l.Error("", zap.Any("details", d))
+					if rr, ok := d[0].(*protos.RateRequest); ok {
+						errDetails = fmt.Sprintf("base: %s destination: %s", rr.GetBase().String(), rr.GetDestination().String())
+					}
+				}
+				db.l.Error("error receiving message", zap.Any("", errDetails))
+			}
+		}
+
+		// handle a rate response
+		if rresp := sresp.GetRateResponse(); rresp != nil {
+			db.l.Info("received updated rate from server", zap.Any("destination", rresp.Destination.String()))
+			db.rates[rresp.Destination.String()] = rresp.Rate
+		}
+	}
 }
 
 // GetProducts returns all products from the database
@@ -57,7 +119,7 @@ func (db *ProductsDB) GetProducts(currency string) (Products, error) {
 	if currency == "" {
 		return productList, nil
 	}
-	presp, err := db.getRate(currency)
+	r, err := db.getRate(currency)
 	if err != nil {
 		db.l.Error("[ERROR] unable to get rate", zap.Any("currency", currency), zap.Error(err))
 		return nil, err
@@ -66,7 +128,7 @@ func (db *ProductsDB) GetProducts(currency string) (Products, error) {
 	products := Products{}
 	for _, p := range productList {
 		np := *p
-		np.Price = np.Price * presp
+		np.Price = np.Price * r
 		products = append(products, &np)
 	}
 
@@ -86,14 +148,14 @@ func (db *ProductsDB) GetProductByID(id int, currency string) (*Product, error) 
 		return productList[i], nil
 	}
 
-	presp, err := db.getRate(currency)
+	r, err := db.getRate(currency)
 	if err != nil {
 		db.l.Error("[ERROR] unable to get rate", zap.Any("currency", currency), zap.Error(err))
 		return nil, err
 	}
 
 	newp := *productList[i]
-	newp.Price = newp.Price * presp
+	newp.Price = newp.Price * r
 	return &newp, nil
 }
 
@@ -146,12 +208,36 @@ func findIndexByProductID(id int) int {
 }
 
 func (db *ProductsDB) getRate(destination string) (float64, error) {
-	rr := &protos.RateRequest{
+	// if cached return
+	/* 	if r, ok := db.rates[destination]; ok {
+		return r, nil
+	} */
+
+	req := &protos.RateRequest{
 		Base:        protos.Currencies(protos.Currencies_value["EUR"]),
 		Destination: protos.Currencies(protos.Currencies_value[destination]),
 	}
-	presp, err := db.currency.GetRate(context.Background(), rr)
-	return presp.Rate, err
+
+	// get initial rate
+	resp, err := db.currencyClient.GetRate(context.Background(), req)
+	if err != nil {
+		if s, ok := status.FromError(err); ok {
+			md := s.Details()[0].(*protos.RateRequest)
+			if s.Code() == codes.InvalidArgument {
+				return -1, fmt.Errorf("base %v and destination currencies %v cannot be the same", md.Base.String(), md.Destination.String())
+			}
+			return -1, fmt.Errorf("unable to get rate from currency server for Base: %v, Destination: %v", md.Base.String(), md.Destination.String())
+		}
+	}
+	db.rates[destination] = resp.Rate
+
+	// subscribe for updates
+	db.currSubClient.Send(req)
+	if err != nil {
+		return -1, err
+	}
+
+	return resp.Rate, err
 }
 
 // productList is a hard coded list of products for this

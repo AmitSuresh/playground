@@ -4,21 +4,20 @@ import (
 	"fmt"
 	"regexp"
 
-	"github.com/go-playground/validator"
+	"github.com/go-playground/validator/v10"
 )
 
-// ValidationError wraps the validators FieldError so we do not
-// expose this to out code
+// ValidationError wraps the validator.FieldError so it is not exposed to our code
 type ValidationError struct {
-	validator.FieldError
+	FieldError validator.FieldError
 }
 
 func (v ValidationError) Error() string {
 	return fmt.Sprintf(
 		"Key: '%s' Error: Field validation for '%s' failed on the '%s' tag",
-		v.Namespace(),
-		v.Field(),
-		v.Tag(),
+		v.FieldError.Namespace(),
+		v.FieldError.Field(),
+		v.FieldError.Tag(),
 	)
 }
 
@@ -35,7 +34,7 @@ func (v ValidationErrors) Errors() []string {
 	return errs
 }
 
-// Validation contains
+// Validation contains a validate
 type Validation struct {
 	validate *validator.Validate
 }
@@ -49,37 +48,19 @@ func NewValidation() *Validation {
 }
 
 // Validate the item
-// for more detail the returned error can be cast into a
-// validator.ValidationErrors collection
-//
-//	if ve, ok := err.(validator.ValidationErrors); ok {
-//				fmt.Println(ve.Namespace())
-//				fmt.Println(ve.Field())
-//				fmt.Println(ve.StructNamespace())
-//				fmt.Println(ve.StructField())
-//				fmt.Println(ve.Tag())
-//				fmt.Println(ve.ActualTag())
-//				fmt.Println(ve.Kind())
-//				fmt.Println(ve.Type())
-//				fmt.Println(ve.Value())
-//				fmt.Println(ve.Param())
-//				fmt.Println()
-//		}
 func (v *Validation) Validate(i interface{}) ValidationErrors {
-	errs := v.validate.Struct(i).(validator.ValidationErrors)
-
-	if len(errs) == 0 {
-		return nil
+	errs := v.validate.Struct(i)
+	if errs != nil {
+		// Handle validation errors
+		var returnErrs []ValidationError
+		for _, err := range errs.(validator.ValidationErrors) {
+			// cast the FieldError into our ValidationError and append to the slice
+			ve := ValidationError{err}
+			returnErrs = append(returnErrs, ve)
+		}
+		return returnErrs
 	}
-
-	var returnErrs []ValidationError
-	for _, err := range errs {
-		// cast the FieldError into our ValidationError and append to the slice
-		ve := ValidationError{err}
-		returnErrs = append(returnErrs, ve)
-	}
-
-	return returnErrs
+	return nil
 }
 
 // validateSKU

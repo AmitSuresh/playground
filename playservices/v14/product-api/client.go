@@ -44,7 +44,7 @@ func setupHTTPServer(l *zap.Logger, cc protos.CurrencyClient) *http.Server {
 	getR.HandleFunc("/products/{id:[0-9]+}", ph.ListSingleProduct).Queries("currency", "{[A-Z{3}]}")
 
 	putR := sm.Methods(http.MethodPut).Subrouter()
-	putR.HandleFunc("/products", ph.Update)
+	putR.HandleFunc("/products", ph.Update).Queries("id", "{[0-9]+}")
 	putR.Use(ph.MiddlewareValidateProduct)
 
 	postR := sm.Methods(http.MethodPost).Subrouter()
