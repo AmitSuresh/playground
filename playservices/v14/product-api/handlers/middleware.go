@@ -12,6 +12,7 @@ import (
 func (p *ProductsHandler) MiddlewareValidateProduct(next http.Handler) http.Handler {
 	return http.HandlerFunc(
 		func(w http.ResponseWriter, r *http.Request) {
+			w.Header().Add("Content-Type", "application/json")
 			prod := &data.Product{}
 
 			err := data.FromJSON(prod, r.Body)
@@ -34,7 +35,7 @@ func (p *ProductsHandler) MiddlewareValidateProduct(next http.Handler) http.Hand
 				err = data.ToJSON(prod, w)
 				if err != nil {
 					p.l.Error("error writing success message", zap.Error(err))
-					http.Error(w, fmt.Sprintf("writing success message: %s", err), http.StatusBadRequest)
+					http.Error(w, fmt.Sprintf("error writing success message: %s", err), http.StatusBadRequest)
 					return
 				}
 			}

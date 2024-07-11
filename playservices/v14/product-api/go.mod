@@ -9,7 +9,7 @@ require (
 	github.com/go-openapi/strfmt v0.23.0
 	github.com/go-openapi/swag v0.23.0
 	github.com/go-openapi/validate v0.24.0
-	github.com/go-playground/validator v9.31.0+incompatible
+	github.com/go-playground/validator/v10 v10.22.0
 	github.com/gorilla/handlers v1.5.2
 	github.com/gorilla/mux v1.8.1
 	go.uber.org/zap v1.27.0
@@ -20,6 +20,7 @@ require (
 	github.com/asaskevich/govalidator v0.0.0-20230301143203-a9d515a09cc2 // indirect
 	github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc // indirect
 	github.com/felixge/httpsnoop v1.0.4 // indirect
+	github.com/gabriel-vasile/mimetype v1.4.3 // indirect
 	github.com/go-logr/logr v1.4.2 // indirect
 	github.com/go-logr/stdr v1.2.2 // indirect
 	github.com/go-openapi/analysis v0.23.0 // indirect
@@ -44,13 +45,13 @@ require (
 	go.opentelemetry.io/otel/sdk v1.27.0 // indirect
 	go.opentelemetry.io/otel/trace v1.27.0 // indirect
 	go.uber.org/multierr v1.11.0 // indirect
+	golang.org/x/crypto v0.25.0 // indirect
 	golang.org/x/net v0.27.0 // indirect
 	golang.org/x/sync v0.7.0 // indirect
 	golang.org/x/sys v0.22.0 // indirect
 	golang.org/x/text v0.16.0 // indirect
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20240604185151-ef581f913117 // indirect
 	google.golang.org/protobuf v1.34.2 // indirect
-	gopkg.in/go-playground/assert.v1 v1.2.1 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
 
