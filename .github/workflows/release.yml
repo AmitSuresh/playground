@@ -12,6 +12,9 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v2
+        
+      - name: List files
+        run: ls -R
 
       - name: Docker meta
         id: meta
@@ -43,6 +46,3 @@ jobs:
           dockerfile: ./playservices/v14/currency/Dockerfile
           push: true
           tags: ${{ steps.meta.outputs.tags }}
-      - name: List files
-        run: ls -R
-
