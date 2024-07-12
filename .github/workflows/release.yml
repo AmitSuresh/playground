@@ -16,12 +16,23 @@ jobs:
       - name: List files
         run: ls -R
 
-      - name: Docker meta
-        id: meta
+      - name: Docker meta for currency
+        id: meta_currency
         uses: docker/metadata-action@v5
         with:
           images: |
             amitsuresh/server
+          tags: |
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=semver,pattern={{major}}
+
+      - name: Docker meta for product-api
+        id: meta_product
+        uses: docker/metadata-action@v5
+        with:
+          images: |
+            amitsuresh/product-api
           tags: |
             type=semver,pattern={{version}}
             type=semver,pattern={{major}}.{{minor}}
@@ -39,10 +50,18 @@ jobs:
           username: ${{ secrets.DOCKER_USERNAME }}
           password: ${{ secrets.DOCKER_PASSWORD }}
 
-      - name: Build and push
+      - name: Build and push currency server
         uses: docker/build-push-action@v2
         with:
           context: ./playservices/v14/currency/
-          dockerfile: ./playservices/v14/currency/Dockerfile
+          file: ./playservices/v14/currency/Dockerfile
           push: true
-          tags: ${{ steps.meta.outputs.tags }}
+          tags: ${{ steps.meta_currency.outputs.tags }}
+
+      - name: Build and push product-api
+        uses: docker/build-push-action@v2
+        with:
+          context: ./playservices/v14/product-api/
+          file: ./playservices/v14/product-api/Dockerfile
+          push: true
+          tags: ${{ steps.meta_product.outputs.tags }}
