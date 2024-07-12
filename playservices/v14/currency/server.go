@@ -33,7 +33,7 @@ func main() {
 	reflection.Register(gs)
 
 	// Define the gRPC server options (e.g., port)
-	listener, err := net.Listen("tcp", fmt.Sprintf("localhost:%d", *port))
+	listener, err := net.Listen("tcp", fmt.Sprintf("0.0.0.0:%d", *port))
 	if err != nil {
 		log.Error("unable to listen", zap.Error(err))
 	}
