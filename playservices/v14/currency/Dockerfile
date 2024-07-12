@@ -16,4 +16,4 @@ COPY --chown=1001:1001 --from=root-certs /etc/ssl/certs/ca-certificates.crt /etc
 COPY --chown=1001:1001 --from=builder /root/server /root
 USER app
 EXPOSE 9092
-ENTRYPOINT ["/root"]
+ENTRYPOINT ["/root/server"]
