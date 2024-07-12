@@ -13,7 +13,7 @@ FROM scratch as final
 COPY --from=root-certs /etc/passwd /etc/passwd
 COPY --from=root-certs /etc/group /etc/group
 COPY --chown=1001:1001 --from=root-certs /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
-COPY --chown=1001:1001 --from=builder /root/server 
+COPY --chown=1001:1001 --from=builder /root/server /root
 USER app
 EXPOSE 9092
 ENTRYPOINT ["/root"]
