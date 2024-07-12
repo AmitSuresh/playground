@@ -4,16 +4,16 @@ RUN addgroup -g 1001 app
 RUN adduser app -u 1001 -D -G app /home/app
 
 FROM golang:latest as builder
-WORKDIR /product-api
+WORKDIR /root/
 COPY --from=root-certs /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
 COPY . .
-RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -mod=mod -o ./server ./client.go
+RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -mod=mod -o client ./client.go
 
 FROM scratch as final
 COPY --from=root-certs /etc/passwd /etc/passwd
 COPY --from=root-certs /etc/group /etc/group
 COPY --chown=1001:1001 --from=root-certs /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
-COPY --chown=1001:1001 --from=builder /product-api/server /product-api
+COPY --chown=1001:1001 --from=builder /root/client /root
 USER app
 EXPOSE 9090
-ENTRYPOINT ["/product-api/server"]
+ENTRYPOINT ["/root"]
