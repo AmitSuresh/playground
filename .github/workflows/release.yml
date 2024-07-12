@@ -39,8 +39,8 @@ jobs:
       - name: Build and push
         uses: docker/build-push-action@v2
         with:
-          context: ./playservices/playground/v14/currency/
-          dockerfile: ./playservices/playground/v14/currency/Dockerfile
+          context: ./playservices/v14/currency/
+          dockerfile: ./playservices/v14/currency/Dockerfile
           push: true
           tags: ${{ steps.meta.outputs.tags }}
       - name: List files
