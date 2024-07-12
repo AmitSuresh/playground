@@ -7,7 +7,7 @@ FROM golang:latest as builder
 WORKDIR /root
 COPY --from=root-certs /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
 COPY . .
-RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -mod=mod -o ./server ./server.go
+RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -mod=mod -o server ./server.go
 
 FROM scratch as final
 COPY --from=root-certs /etc/passwd /etc/passwd
