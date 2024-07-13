@@ -24,10 +24,10 @@ import (
 
 const (
 	shutdownTime   = 6 * time.Second
-	httpServerAddr = "localhost:9090"
+	httpServerAddr = "0.0.0.0:9090"
 )
 
-var serverAddr = flag.String("addr", "localhost:9092", "The server address in the format of host:port")
+var serverAddr = flag.String("addr", "0.0.0.0:9092", "The server address in the format of host:port")
 
 func setupHTTPServer(l *zap.Logger, cc protos.CurrencyClient) *http.Server {
 	v := data.NewValidation()
