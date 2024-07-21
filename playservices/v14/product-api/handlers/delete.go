@@ -18,11 +18,11 @@ import (
 // Delete handles DELETE requests and removes items from the database
 func (p *ProductsHandler) Delete(w http.ResponseWriter, r *http.Request) {
 
-	id := getProductID(r)
+	id := p.getProductID(r)
 
-	p.l.Debug("deleting record", zap.Any("id:", id))
+	p.l.Info("deleting record", zap.Any("id:", id))
 
-	err := p.db.DeleteProduct(id)
+	err := p.db.DeleteProduct(r.Context(), id)
 	if err == data.ErrProductNotFound {
 		p.l.Error("deleting record id does not exist", zap.Error(err))
 

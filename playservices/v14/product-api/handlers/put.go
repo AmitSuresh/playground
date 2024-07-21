@@ -1,10 +1,11 @@
 package handlers
 
 import (
+	"fmt"
 	"net/http"
-	"strconv"
 
 	"github.com/AmitSuresh/playground/playservices/v14/product-api/data"
+	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.uber.org/zap"
 )
 
@@ -23,30 +24,37 @@ func (p *ProductsHandler) Update(w http.ResponseWriter, r *http.Request) {
 	ctx = InjectLogger(ctx, p.l)
 
 	id := r.URL.Query().Get("id")
-	// fetch the product from the context
-	prod := GetProductFromContext(ctx)
 
-	i, err := strconv.Atoi(id)
+	prod := GetProductsFromContext(ctx)
+
+	i, err := primitive.ObjectIDFromHex(id)
 	if err != nil {
-		http.Error(w, "error parsing id", http.StatusInternalServerError)
-		p.l.Error("error parsing id", zap.Error(err))
+		http.Error(w, "invalid object id", http.StatusInternalServerError)
+		p.l.Error("invalid object id", zap.Error(err))
 	}
-	prod.ID = i
-	p.l.Info("product id", zap.Any(string(productKey), prod.ID))
+
+	p.l.Info("product id", zap.Any(string(productKey), i))
 	p.l.Info("Handle PUT Products", zap.Any(string(logKey), ctx.Value(logKey)))
 	p.l.Info("product from context", zap.Any(string(productKey), ctx.Value(productKey)))
 
-	err = p.db.UpdateProduct(prod)
-	if err == data.ErrProductNotFound {
-		http.Error(w, "product not found in put", http.StatusNotFound)
-		p.l.Error("product not found in put", zap.Error(err))
-		return
-	}
+	res, err := p.db.UpdateProduct(r.Context(), prod, i)
 
 	if err != nil {
-		http.Error(w, "product not found in put", http.StatusInternalServerError)
-		p.l.Error("product not found in put", zap.Error(err))
-		return
+		switch err {
+		case data.ErrProductNotFound:
+			http.Error(w, fmt.Sprintf("product of id: %s not found in put ", i), http.StatusNotFound)
+			p.l.Error("product not found in put", zap.Error(err))
+			return
+		default:
+			http.Error(w, "product not found in put", http.StatusInternalServerError)
+			p.l.Error("product not found in put", zap.Error(err))
+			return
+		}
+	}
+
+	err = data.ToJSON(res, w)
+	if err != nil {
+		p.l.Error("error serializing the contents", zap.Error(err))
 	}
 
 	// write the no content success header

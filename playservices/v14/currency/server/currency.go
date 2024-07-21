@@ -63,7 +63,7 @@ func (c *CurrencyServerHandler) handleUpdates() {
 
 // GetRate implements the GetRate RPC method.
 func (c *CurrencyServerHandler) GetRate(ctx context.Context, req *protos.RateRequest) (*protos.RateResponse, error) {
-	c.l.Debug("Handling GetRate", zap.Any("base", req.Base), zap.Any("destination", req.Destination))
+	c.l.Info("Handling GetRate", zap.Any("base", req.Base), zap.Any("destination", req.Destination))
 
 	if req.Base == req.Destination {
 		err := status.Newf(

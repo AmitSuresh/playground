@@ -3,10 +3,17 @@ package data
 import (
 	"context"
 	"fmt"
+	"log"
 
 	protos "github.com/AmitSuresh/playground/playservices/v14/currency/protos/currency"
+	"go.mongodb.org/mongo-driver/bson"
+	"go.mongodb.org/mongo-driver/bson/primitive"
+	"go.mongodb.org/mongo-driver/mongo"
+	"go.mongodb.org/mongo-driver/mongo/options"
 	"go.uber.org/zap"
+	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/status"
 )
 
@@ -18,41 +25,43 @@ type Product struct {
 	//
 	// required: false
 	// min: 1
-	ID int `json:"id"` // Unique identifier for the product
+	ID string `json:"id,omitempty" bson:"_id,omitempty"`
 	// the name for this poduct
 	//
 	// required: true
 	// max length: 255
-	Name string `json:"name" validate:"required"`
+	Name string `json:"name" bson:"name" validate:"required"`
 	// the description for this poduct
 	//
 	// required: false
 	// max length: 10000
-	Description string `json:"description"`
+	Description string `json:"description" bson:"description,omitempty"`
 	// the price for the product
 	//
 	// required: true
 	// min: 0.01
-	Price float64 `json:"price" validate:"gt=0"`
+	Price float64 `json:"price" bson:"price" validate:"gt=0"`
 	// the SKU for the product
 	//
 	// required: true
 	// pattern: [a-z]+-[a-z]+-[a-z]+
-	SKU string `json:"sku" validate:"required,sku"`
+	SKU string `json:"sku" bson:"sku" validate:"required,sku"`
 }
 
 // Products is a collection of Product
 type Products []*Product
 
 type ProductsDB struct {
-	currencyClient protos.CurrencyClient
-	l              *zap.Logger
-	rates          map[string]float64
-	currSubClient  protos.Currency_SubscribeRatesClient
+	currencyClient  protos.CurrencyClient
+	l               *zap.Logger
+	rates           map[string]float64
+	currSubClient   protos.Currency_SubscribeRatesClient
+	mongoClient     *mongo.Client
+	mongoCollection *mongo.Collection
 }
 
-func GetProductsDB(c protos.CurrencyClient, l *zap.Logger) *ProductsDB {
-	db := &ProductsDB{c, l, make(map[string]float64), nil}
+func GetProductsDB(c protos.CurrencyClient, l *zap.Logger, mc *mongo.Client) *ProductsDB {
+	db := &ProductsDB{c, l, make(map[string]float64), nil, nil, nil}
 
 	go db.handleUpdates()
 
@@ -114,38 +123,68 @@ func (db *ProductsDB) handleUpdates() {
 }
 
 // GetProducts returns all products from the database
-func (db *ProductsDB) GetProducts(currency string) (Products, error) {
+func (db *ProductsDB) GetProducts(ctx context.Context, currency string) (Products, error) {
 
-	if currency == "" {
-		return productList, nil
+	db.l.Info("here")
+	if err := db.mongoClient.Ping(ctx, nil); err != nil {
+		db.l.Error("mongoClient is not connected", zap.Error(err))
+		return nil, fmt.Errorf("client is disconnected: %v", err)
 	}
+
+	filter := bson.M{}
+	cursor, err := db.mongoCollection.Find(ctx, filter)
+	if err != nil {
+		db.l.Error("error finding data", zap.Error(err))
+	}
+	var results []*Product
+
+	if err = cursor.All(ctx, &results); err != nil {
+		db.l.Error("error decoding data", zap.Error(err))
+	}
+	if currency == "" {
+		return results, nil
+	}
+	db.l.Info("here", zap.Any("here", results))
 	r, err := db.getRate(currency)
 	if err != nil {
 		db.l.Error("[ERROR] unable to get rate", zap.Any("currency", currency), zap.Error(err))
 		return nil, err
 	}
 
-	products := Products{}
-	for _, p := range productList {
-		np := *p
-		np.Price = np.Price * r
-		products = append(products, &np)
+	for _, v := range results {
+		v.Price = v.Price * r
 	}
 
-	return products, nil
+	/* 	products := Products{}
+	   	for _, p := range productList {
+	   		np := *p
+	   		np.Price = np.Price * r
+	   		products = append(products, &np)
+	   	}
+	*/
+	return results, nil
 }
 
 // GetProductByID returns a single product which matches the id from the
 // database.
 // If a product is not found this function returns a ProductNotFound error
-func (db *ProductsDB) GetProductByID(id int, currency string) (*Product, error) {
-	i := findIndexByProductID(id)
-	if id == -1 {
-		return nil, ErrProductNotFound
+func (db *ProductsDB) GetProductByID(ctx context.Context, id primitive.ObjectID, currency string) (*Product, error) {
+
+	filter := bson.D{
+		{
+			Key:   "_id",
+			Value: id,
+		},
+	}
+	p := new(Product)
+	err := db.mongoCollection.FindOne(ctx, filter).Decode(p)
+	if err != nil {
+		db.l.Error("[ERROR] unable to find the product", zap.Error(err))
+		return nil, err
 	}
 
 	if currency == "" {
-		return productList[i], nil
+		return p, nil
 	}
 
 	r, err := db.getRate(currency)
@@ -154,57 +193,135 @@ func (db *ProductsDB) GetProductByID(id int, currency string) (*Product, error) 
 		return nil, err
 	}
 
-	newp := *productList[i]
-	newp.Price = newp.Price * r
-	return &newp, nil
+	p.Price = p.Price * r
+	return p, nil
 }
 
 // AddProduct adds a new product to the database
-func (db *ProductsDB) AddProduct(p *Product) {
-	// get the next id in sequence
-	maxID := productList[len(productList)-1].ID
-	p.ID = maxID + 1
-	productList = append(productList, p)
+func (db *ProductsDB) AddProduct(ctx context.Context, d []interface{}) (*mongo.InsertManyResult, error) {
+
+	res, err := db.mongoCollection.InsertMany(ctx, d)
+	if err != nil {
+		return nil, fmt.Errorf("error inserting records: %v", err)
+	}
+	return res, nil
 }
 
 // UpdateProduct replaces a product in the database with the given
 // item.
 // If a product with the given id does not exist in the database
 // this function returns a ProductNotFound error
-func (db *ProductsDB) UpdateProduct(p *Product) error {
-	i := findIndexByProductID(p.ID)
-	if i == -1 {
-		return ErrProductNotFound
+func (db *ProductsDB) UpdateProduct(ctx context.Context, p []*Product, id primitive.ObjectID) (*mongo.BulkWriteResult, error) {
+
+	var updateModels []mongo.WriteModel
+	filter := bson.D{
+		{
+			Key:   "_id",
+			Value: id,
+		},
 	}
 
-	// update the product in the DB
-	productList[i] = p
+	for _, prod := range p {
+		update := bson.D{
+			{Key: "$set", Value: bson.D{
+				{Key: "name", Value: prod.Name},
+				{Key: "description", Value: prod.Description},
+				{Key: "price", Value: prod.Price},
+				{Key: "sku", Value: prod.SKU},
+			}},
+		}
+		model := mongo.NewUpdateManyModel().SetFilter(filter).SetUpdate(update)
+		updateModels = append(updateModels, model)
+	}
 
-	return nil
+	res, err := db.mongoCollection.BulkWrite(ctx, updateModels)
+	if err != nil {
+		db.l.Error("error updating one product", zap.Error(err))
+		return nil, err
+	}
+
+	switch res.MatchedCount {
+	case 0:
+		return nil, ErrProductNotFound
+	default:
+		return res, nil
+	}
 }
 
 // DeleteProduct deletes a product from the database
-func (db *ProductsDB) DeleteProduct(id int) error {
-	i := findIndexByProductID(id)
-	if i == -1 {
-		return ErrProductNotFound
+func (db *ProductsDB) DeleteProduct(ctx context.Context, id primitive.ObjectID) error {
+
+	filter := bson.D{
+		{
+			Key:   "_id",
+			Value: id,
+		},
+	}
+	res, err := db.mongoCollection.DeleteOne(ctx, filter)
+	if err != nil {
+		db.l.Error("error deleting product from database", zap.Error(err))
+		return err
 	}
 
-	productList = append(productList[:i], productList[i+1])
+	if res.DeletedCount == 0 {
+		return ErrProductNotFound
+	}
 
 	return nil
 }
 
-// findIndex finds the index of a product in the database
-// returns -1 when no product can be found
-func findIndexByProductID(id int) int {
-	for i, p := range productList {
-		if p.ID == id {
-			return i
-		}
+func (db *ProductsDB) DisconnectMongoClient() error {
+
+	return db.mongoClient.Disconnect(context.Background())
+}
+
+func (db *ProductsDB) GetMongoClient(m string) (*mongo.Client, error) {
+
+	s := options.ServerAPI(options.ServerAPIVersion1)
+	ops := options.Client().ApplyURI(m).SetServerAPIOptions(s)
+
+	// Create a new client and connect to the server
+	mongoClient, err := mongo.Connect(context.Background(), ops)
+	if err != nil {
+		db.mongoClient = nil
+		db.l.Error("error creating a new client")
+		return nil, err
 	}
 
-	return -1
+	db.mongoClient = mongoClient
+	return mongoClient, nil
+}
+
+func (db *ProductsDB) GetMongoCollection(dbase string, coll string) error {
+	db.mongoCollection = db.mongoClient.Database(dbase).Collection(coll)
+	if db.mongoCollection == nil {
+		return fmt.Errorf("error retrieving collection")
+	}
+	return nil
+}
+
+func (db *ProductsDB) MigrateDocs(ctx context.Context) (*mongo.InsertManyResult, error) {
+	newProd := []interface{}{
+		Product{
+			Name:        "Latte",
+			Description: "Frothy milky coffee",
+			Price:       2.45,
+			SKU:         "abc323",
+		},
+		Product{
+			Name:        "Espresso",
+			Description: "Short and strong coffee without milk",
+			Price:       1.99,
+			SKU:         "fjd34",
+		},
+	}
+
+	result, err := db.mongoCollection.InsertMany(ctx, newProd)
+	if err != nil {
+		db.l.Error("error migrating", zap.Error(err))
+		return nil, err
+	}
+	return result, nil
 }
 
 func (db *ProductsDB) getRate(destination string) (float64, error) {
@@ -240,21 +357,38 @@ func (db *ProductsDB) getRate(destination string) (float64, error) {
 	return resp.Rate, err
 }
 
+func GetgrpcClient(s string, l *zap.Logger) *grpc.ClientConn {
+
+	var opts []grpc.DialOption
+	opts = append(opts, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	conn, err := grpc.NewClient(s, opts...)
+	if err != nil {
+		log.Fatalf("fail to dial: %v", err)
+	}
+	//defer conn.Close()
+
+	return conn
+}
+
 // productList is a hard coded list of products for this
 // example data source
 var productList = []*Product{
 	{
-		ID:          1,
+		//ID:          "1",
+		//ID:          "669d04756b448f4c1fef495e"
 		Name:        "Latte",
 		Description: "Frothy milky coffee",
 		Price:       2.45,
 		SKU:         "abc323",
 	},
 	{
-		ID:          2,
+		//ID:          "2",
+		//ID:          "669d04756b448f4c1fef495f",
 		Name:        "Espresso",
 		Description: "Short and strong coffee without milk",
 		Price:       1.99,
 		SKU:         "fjd34",
 	},
 }
+
+var ProductList = productList

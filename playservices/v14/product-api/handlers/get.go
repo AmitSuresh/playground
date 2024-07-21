@@ -14,14 +14,14 @@ import (
 
 // ListAll handles GET requests and returns all current products
 func (p *ProductsHandler) ListAll(w http.ResponseWriter, r *http.Request) {
-	//log, _ := zap.NewProduction()
-	p.l.Debug("Handle GET Products")
+
+	p.l.Info("Handle GET Products")
 
 	w.Header().Add("Content-Type", "application/json")
 
 	curr := r.URL.Query().Get("currency")
 	// fetch the products from the datastore
-	lp, err := p.db.GetProducts(curr)
+	lp, err := p.db.GetProducts(r.Context(), curr)
 	if err != nil {
 		p.l.Error("unable to fetch products", zap.Error(err))
 	}
@@ -40,12 +40,13 @@ func (p *ProductsHandler) ListAll(w http.ResponseWriter, r *http.Request) {
 
 // ListSingle handles GET requests
 func (p *ProductsHandler) ListSingleProduct(rw http.ResponseWriter, r *http.Request) {
-	id := getProductID(r)
 
-	p.l.Debug("[DEBUG]", zap.Any("get record id ", id))
+	id := p.getProductID(r)
+
+	p.l.Info("[DEBUG]", zap.Any("get record id ", id))
 
 	curr := r.URL.Query().Get("currency")
-	prod, err := p.db.GetProductByID(id, curr)
+	prod, err := p.db.GetProductByID(r.Context(), id, curr)
 
 	switch err {
 	case nil:
