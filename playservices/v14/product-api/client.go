@@ -3,7 +3,9 @@ package main
 import (
 	"context"
 	"flag"
+	"fmt"
 	"net/http"
+	"net/url"
 	"os"
 	"os/signal"
 	"syscall"
@@ -17,9 +19,9 @@ import (
 	"github.com/go-openapi/runtime/middleware"
 	gohandlers "github.com/gorilla/handlers"
 	"github.com/gorilla/mux"
+	"github.com/joho/godotenv"
+	"go.mongodb.org/mongo-driver/mongo"
 	"go.uber.org/zap"
-	"google.golang.org/grpc"
-	"google.golang.org/grpc/credentials/insecure"
 )
 
 const (
@@ -27,11 +29,18 @@ const (
 	httpServerAddr = "0.0.0.0:9090"
 )
 
-var serverAddr = flag.String("addr", "0.0.0.0:9092", "The server address in the format of host:port")
+var (
+	serverAddr  = flag.String("addr", "0.0.0.0:9092", "The server address in the format of host:port")
+	mongoClient *mongo.Client
 
-func setupHTTPServer(l *zap.Logger, cc protos.CurrencyClient) *http.Server {
-	v := data.NewValidation()
-	db := data.GetProductsDB(cc, l)
+	mdb_username string
+	mdb_password string
+	mdb_cluster  string
+	mdb_appname  string
+)
+
+func setupHTTPServer(l *zap.Logger, v *data.Validation, cc protos.CurrencyClient, db *data.ProductsDB) *http.Server {
+
 	ph := handlers.NewProducts(l, v, cc, db)
 
 	sm := mux.NewRouter()
@@ -40,11 +49,12 @@ func setupHTTPServer(l *zap.Logger, cc protos.CurrencyClient) *http.Server {
 	getR := sm.Methods(http.MethodGet).Subrouter()
 	getR.HandleFunc("/products", ph.ListAll).Queries("currency", "{[A-Z{3}]}")
 	getR.HandleFunc("/products", ph.ListAll)
-	getR.HandleFunc("/products/{id:[0-9]+}", ph.ListSingleProduct)
-	getR.HandleFunc("/products/{id:[0-9]+}", ph.ListSingleProduct).Queries("currency", "{[A-Z{3}]}")
+	getR.HandleFunc("/products", ph.ListSingleProduct)
+	getR.HandleFunc("/products", ph.ListSingleProduct).Queries("id", "{id:[0-9a-fA-F]{24}}", "currency", "{currency:[A-Z]{3}}")
+	getR.HandleFunc("/migrate", ph.MigrateDocs).Queries("currency", "{currency:[A-Z]{3}}")
 
 	putR := sm.Methods(http.MethodPut).Subrouter()
-	putR.HandleFunc("/products", ph.Update).Queries("id", "{[0-9]+}")
+	putR.HandleFunc("/products", ph.Update).Queries("id", "{id:[0-9a-fA-F]{24}}", "currency", "{currency:[A-Z]{3}}")
 	putR.Use(ph.MiddlewareValidateProduct)
 
 	postR := sm.Methods(http.MethodPost).Subrouter()
@@ -52,7 +62,7 @@ func setupHTTPServer(l *zap.Logger, cc protos.CurrencyClient) *http.Server {
 	postR.Use(ph.MiddlewareValidateProduct)
 
 	deleteR := sm.Methods(http.MethodDelete).Subrouter()
-	deleteR.HandleFunc("/products/{id:[0-9]+}", ph.Delete)
+	deleteR.HandleFunc("/products", ph.Delete).Queries("id", "{id:[0-9a-fA-F]{24}}")
 
 	// Handler for documentation
 	opts := middleware.RedocOpts{SpecURL: "/swagger.yaml"}
@@ -75,19 +85,44 @@ func main() {
 	l, _ := zap.NewProduction()
 	defer l.Sync()
 
-	var opts []grpc.DialOption
-	opts = append(opts, grpc.WithTransportCredentials(insecure.NewCredentials()))
-	l.Info("[INFO]", zap.Any("serverAddr", *serverAddr))
-	conn, err := grpc.NewClient(*serverAddr, opts...)
+	err := godotenv.Load()
 	if err != nil {
-		log.Fatalf("fail to dial: %v", err)
+		l.Error("error loading .env file")
 	}
-	defer conn.Close()
 
-	client := protos.NewCurrencyClient(conn)
+	mdb_username = url.QueryEscape(os.Getenv("MDB_USERNAME"))
+	mdb_password = url.QueryEscape(os.Getenv("MDB_PASSWORD"))
+	mdb_cluster = os.Getenv("MDB_CLUSTER")
+	mdb_appname = os.Getenv("MDB_APPNAME")
+
+	if mdb_username == "" || mdb_password == "" || mdb_cluster == "" || mdb_appname == "" {
+		log.Fatalf("MongoDB credentials or cluster not properly set")
+	}
+
+	mdb_URI := fmt.Sprintf("mongodb+srv://%s:%s@%s/?retryWrites=true&w=majority&appName=%s",
+		mdb_username, mdb_password, mdb_cluster, mdb_appname)
+
+	l.Info("[INFO]", zap.Any("serverAddr", *serverAddr))
+	grpcConn := data.GetgrpcClient(*serverAddr, l)
+	defer grpcConn.Close()
+
+	cc := protos.NewCurrencyClient(grpcConn)
+
+	v := data.NewValidation()
+	db := data.GetProductsDB(cc, l, mongoClient)
+	mongoClient, err = db.GetMongoClient(mdb_URI)
+	if err != nil {
+		l.Error("error getting mongo client", zap.Error(err))
+	}
+	defer db.DisconnectMongoClient()
+
+	err = db.GetMongoCollection("Cluster0", "ecommerce")
+	if err != nil {
+		l.Error("error retrieving mongo collection", zap.Error(err))
+	}
 
 	// Setup HTTP server
-	httpServer := setupHTTPServer(l, client)
+	httpServer := setupHTTPServer(l, v, cc, db)
 
 	// Start HTTP server
 	go func() {

@@ -18,11 +18,11 @@ import (
 	"context"
 	"fmt"
 	"net/http"
-	"strconv"
 
 	protos "github.com/AmitSuresh/playground/playservices/v14/currency/protos/currency"
 	"github.com/AmitSuresh/playground/playservices/v14/product-api/data"
 	"github.com/gorilla/mux"
+	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.uber.org/zap"
 )
 
@@ -79,18 +79,16 @@ func loggableRequest(r *http.Request) map[string]interface{} {
 }
 
 // getProductID returns the product ID from the URL
-// Panics if cannot convert the id into an integer
-// this should never happen as the router ensures that
-// this is a valid number
-func getProductID(r *http.Request) int {
+// converts the id into an integer and return
+func (ph *ProductsHandler) getProductID(r *http.Request) primitive.ObjectID {
 	// parse the product id from the url
 	vars := mux.Vars(r)
 
 	// convert the id into an integer and return
-	id, err := strconv.Atoi(vars["id"])
+	id, err := primitive.ObjectIDFromHex(vars["id"])
+	ph.l.Info("id is:", zap.Any("id ", id))
 	if err != nil {
-		// should never happen
-		panic(err)
+		ph.l.Error("error converting id from hex: ", zap.Error(err))
 	}
 
 	return id
@@ -120,6 +118,15 @@ func InjectProduct(ctx context.Context, prod *data.Product) context.Context {
 
 func GetProductFromContext(ctx context.Context) *data.Product {
 	c, _ := ctx.Value(productKey).(*data.Product)
+	return c
+}
+
+func InjectProducts(ctx context.Context, prod []*data.Product) context.Context {
+	return context.WithValue(ctx, productKey, prod)
+}
+
+func GetProductsFromContext(ctx context.Context) []*data.Product {
+	c, _ := ctx.Value(productKey).([]*data.Product)
 	return c
 }
 
