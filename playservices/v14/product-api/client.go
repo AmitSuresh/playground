@@ -30,7 +30,8 @@ const (
 )
 
 var (
-	serverAddr  = flag.String("addr", "0.0.0.0:9092", "The server address in the format of host:port")
+	grpcAddr    string
+	grpcPort    string
 	mongoClient *mongo.Client
 
 	mdb_username string
@@ -94,6 +95,8 @@ func main() {
 	mdb_password = url.QueryEscape(os.Getenv("MDB_PASSWORD"))
 	mdb_cluster = os.Getenv("MDB_CLUSTER")
 	mdb_appname = os.Getenv("MDB_APPNAME")
+	grpcAddr = os.Getenv("GRPC_ADDRESS")
+	grpcPort = os.Getenv("GRPC_PORT")
 
 	if mdb_username == "" || mdb_password == "" || mdb_cluster == "" || mdb_appname == "" {
 		log.Fatalf("MongoDB credentials or cluster not properly set")
@@ -102,8 +105,10 @@ func main() {
 	mdb_URI := fmt.Sprintf("mongodb+srv://%s:%s@%s/?retryWrites=true&w=majority&appName=%s",
 		mdb_username, mdb_password, mdb_cluster, mdb_appname)
 
-	l.Info("[INFO]", zap.Any("serverAddr", *serverAddr))
-	grpcConn := data.GetgrpcClient(*serverAddr, l)
+	grpcAddress := fmt.Sprintf("%s:%s", grpcAddr, grpcPort)
+	l.Info("[INFO]", zap.Any("mdb_URI: ", mdb_URI))
+	l.Info("[INFO]", zap.Any("grpcAddress: ", grpcAddress), zap.Any("grpcPort: ", grpcPort))
+	grpcConn := data.GetgrpcClient(grpcAddress, l)
 	defer grpcConn.Close()
 
 	cc := protos.NewCurrencyClient(grpcConn)
@@ -127,7 +132,7 @@ func main() {
 	// Start HTTP server
 	go func() {
 		l.Info("Starting HTTP server", zap.String("address", httpServer.Addr))
-		if err := httpServer.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+		if err := httpServer.ListenAndServe(); err != nil {
 			l.Fatal("error starting HTTP server", zap.Error(err))
 		}
 	}()

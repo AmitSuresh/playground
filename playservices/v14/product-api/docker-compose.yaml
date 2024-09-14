@@ -1,0 +1,76 @@
+services:
+  traefik:
+    image: traefik:v3.1
+    command:
+      - "--api.insecure=true"
+      - "--providers.docker=true"
+      - "--entrypoints.web.address=:80"
+      - "--entrypoints.grpc.address=:9092"
+    ports:
+      - "80:80"
+      - "8080:8080"
+      - "9092:9092"
+    volumes:
+      - "/var/run/docker.sock:/var/run/docker.sock:ro"
+    networks:
+      - web
+
+  grpc-server:
+    build:
+      context: ../currency
+      dockerfile: Dockerfile
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.grpc-server.rule=Host(`grpc-server.localhost`)"
+      - "traefik.http.services.grpc-server.loadbalancer.server.port=9092"
+      - "traefik.http.services.grpc-server.loadbalancer.server.scheme=h2c"
+    ports:
+      - "9092"
+    healthcheck:
+      test: ["CMD", "grpcurl", "-v", "-plaintext", "grpc-server:9092", "list"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 5s
+    networks:
+      - web
+    environment:
+      - GRPC_ADDRESS=grpc-server
+    env_file:
+      - ../currency/.env
+    restart: unless-stopped
+    user: "1001:1001"
+
+  client-server:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.client-server.rule=Host(`client-server.localhost`)"
+      - "traefik.http.routers.client-server.entrypoints=web"
+      - "traefik.http.services.client-server.loadbalancer.server.port=9090"
+    ports:
+      - "9090:9090"
+    networks:
+      - web
+    environment:
+      - MDB_USERNAME=amitsuresh
+      - MDB_PASSWORD=pass6381
+      - MDB_CLUSTER=cluster0.xvbsuue.mongodb.net
+      - MDB_APPNAME=Cluster0
+      - GRPC_ADDRESS=grpc-server
+      - GRPC_PORT=9092
+    env_file:
+      - ./.env
+    restart: unless-stopped
+    user: "1001:1001"
+    depends_on:
+      grpc-server:
+        condition: service_started
+      traefik:
+        condition: service_started
+
+networks:
+  web:
+    external: true

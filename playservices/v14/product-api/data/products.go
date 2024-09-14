@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"time"
 
 	protos "github.com/AmitSuresh/playground/playservices/v14/currency/protos/currency"
 	"go.mongodb.org/mongo-driver/bson"
@@ -78,6 +79,21 @@ func (db *ProductsDB) handleUpdates() {
 		// handle connection errors
 		// this is normally terminal requires a reconnect
 		db.l.Error("unable to subscribe for rates", zap.Error(err))
+		for retries := 0; retries < 5; retries++ {
+			subClient, err = db.currencyClient.SubscribeRates(context.Background())
+			if err == nil {
+				break
+			}
+			time.Sleep(5 * time.Second)
+			db.l.Error("Retrying to connect to grpc-server...")
+		}
+		if err != nil {
+			return
+		}
+	}
+
+	if err != nil {
+		db.l.Error("unable to subscribe for rates", zap.Error(err))
 		return
 	}
 
@@ -144,7 +160,7 @@ func (db *ProductsDB) GetProducts(ctx context.Context, currency string) (Product
 	if currency == "" {
 		return results, nil
 	}
-	db.l.Info("here", zap.Any("here", results))
+	db.l.Info("here", zap.Any("results: ", results))
 	r, err := db.getRate(currency)
 	if err != nil {
 		db.l.Error("[ERROR] unable to get rate", zap.Any("currency", currency), zap.Error(err))

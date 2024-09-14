@@ -1,0 +1,18 @@
+http:
+  routers:
+    grpc-server:
+      entryPoints:
+        - grpc
+      service: grpc-server
+      rule: Host(`grpc-server`)
+  services:
+    grpc-server:
+      loadBalancer:
+        servers:
+          - url: grpc-server:9092
+
+entryPoints:
+  grpc:
+    address: ":9092"
+  web:
+    address: ":80"
