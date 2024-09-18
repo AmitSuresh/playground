@@ -1,0 +1,242 @@
+{
+  "consumes": [
+    "application/json"
+  ],
+  "produces": [
+    "application/json"
+  ],
+  "schemes": [
+    "http"
+  ],
+  "swagger": "2.0",
+  "info": {
+    "description": "# Documentation for db-server",
+    "title": "db-server",
+    "version": "1.0.0"
+  },
+  "basePath": "/",
+  "paths": {
+    "/orders": {
+      "post": {
+        "description": "Creates an Order",
+        "tags": [
+          "order"
+        ],
+        "operationId": "createOrder",
+        "parameters": [
+          {
+            "description": "Product data structure to Update or Create.",
+            "name": "Body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/CreateOrderCommand"
+            }
+          },
+          {
+            "type": "string",
+            "description": "The correlation ID for tracking the request",
+            "name": "x-correlationid",
+            "in": "header",
+            "required": true
+          }
+        ],
+        "responses": {
+          "201": {
+            "$ref": "#/responses/orderResponse"
+          },
+          "400": {
+            "$ref": "#/responses/errorResponse"
+          },
+          "402": {
+            "$ref": "#/responses/validationErrorResponse"
+          },
+          "500": {
+            "$ref": "#/responses/errorResponse"
+          }
+        }
+      }
+    },
+    "/orders/{id}": {
+      "get": {
+        "description": "Returns an Order",
+        "tags": [
+          "order"
+        ],
+        "operationId": "listOrder",
+        "parameters": [
+          {
+            "type": "integer",
+            "format": "int64",
+            "description": "The ID of the order to retrieve",
+            "name": "id",
+            "in": "path",
+            "required": true
+          },
+          {
+            "type": "string",
+            "description": "The correlation ID for tracking the request",
+            "name": "x-correlationid",
+            "in": "header",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/responses/orderResponse"
+          },
+          "400": {
+            "$ref": "#/responses/errorResponse"
+          },
+          "500": {
+            "$ref": "#/responses/errorResponse"
+          }
+        }
+      }
+    }
+  },
+  "definitions": {
+    "CreateOrderCommand": {
+      "type": "object",
+      "properties": {
+        "cargoId": {
+          "description": "cargo id of Order",
+          "type": "integer",
+          "format": "int64",
+          "x-go-name": "CargoId"
+        },
+        "lineItems": {
+          "description": "cargo id of Order",
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/CreateOrderLineItemCommand"
+          },
+          "x-go-name": "OrderLineItems"
+        },
+        "shipmentNumber": {
+          "description": "shipment no of Order",
+          "type": "integer",
+          "format": "int64",
+          "x-go-name": "ShipmentNumber"
+        }
+      },
+      "x-go-package": "github.com/AmitSuresh/playground/db-server/src/application/model"
+    },
+    "CreateOrderLineItemCommand": {
+      "type": "object",
+      "properties": {
+        "productId": {
+          "description": "product id of Order line items",
+          "type": "integer",
+          "format": "int64",
+          "x-go-name": "ProductId"
+        },
+        "sellerId": {
+          "description": "product id of Order line items",
+          "type": "integer",
+          "format": "int64",
+          "x-go-name": "SellerId"
+        }
+      },
+      "x-go-package": "github.com/AmitSuresh/playground/db-server/src/application/model"
+    },
+    "GenericError": {
+      "description": "GenericError is a generic error message returned by a server",
+      "type": "object",
+      "properties": {
+        "message": {
+          "type": "string",
+          "x-go-name": "Message"
+        }
+      },
+      "x-go-package": "github.com/AmitSuresh/playground/db-server/src/application/model"
+    },
+    "Order": {
+      "type": "object",
+      "properties": {
+        "CargoId": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "CreatedAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "Id": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "IsShipped": {
+          "type": "boolean"
+        },
+        "OrderLineItems": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/OrderLineItem"
+          }
+        },
+        "ShipmentNumber": {
+          "type": "integer",
+          "format": "int64"
+        }
+      },
+      "x-go-package": "github.com/AmitSuresh/playground/db-server/src/application/domain/entity"
+    },
+    "OrderLineItem": {
+      "type": "object",
+      "properties": {
+        "Id": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "OrderId": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "ProductId": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "SellerId": {
+          "type": "integer",
+          "format": "int64"
+        }
+      },
+      "x-go-package": "github.com/AmitSuresh/playground/db-server/src/application/domain/entity"
+    },
+    "ValidationError": {
+      "description": "ValidationError is a collection of validation error messages",
+      "type": "object",
+      "properties": {
+        "messages": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "x-go-name": "Messages"
+        }
+      },
+      "x-go-package": "github.com/AmitSuresh/playground/db-server/src/application/model"
+    }
+  },
+  "responses": {
+    "errorResponse": {
+      "description": "Generic error message returned as a string",
+      "schema": {
+        "$ref": "#/definitions/GenericError"
+      }
+    },
+    "orderResponse": {
+      "description": "OrderResponse represents the response for an order",
+      "schema": {
+        "$ref": "#/definitions/Order"
+      }
+    },
+    "validationErrorResponse": {
+      "description": "Validation errors defined as an array of strings",
+      "schema": {
+        "$ref": "#/definitions/ValidationError"
+      }
+    }
+  }
+}

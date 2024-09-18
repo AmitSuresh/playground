@@ -1,0 +1,169 @@
+basePath: /
+consumes:
+    - application/json
+definitions:
+    CreateOrderCommand:
+        properties:
+            cargoId:
+                description: cargo id of Order
+                format: int64
+                type: integer
+                x-go-name: CargoId
+            lineItems:
+                description: cargo id of Order
+                items:
+                    $ref: '#/definitions/CreateOrderLineItemCommand'
+                type: array
+                x-go-name: OrderLineItems
+            shipmentNumber:
+                description: shipment no of Order
+                format: int64
+                type: integer
+                x-go-name: ShipmentNumber
+        type: object
+        x-go-package: github.com/AmitSuresh/playground/db-server/src/application/model
+    CreateOrderLineItemCommand:
+        properties:
+            productId:
+                description: product id of Order line items
+                format: int64
+                type: integer
+                x-go-name: ProductId
+            sellerId:
+                description: product id of Order line items
+                format: int64
+                type: integer
+                x-go-name: SellerId
+        type: object
+        x-go-package: github.com/AmitSuresh/playground/db-server/src/application/model
+    GenericError:
+        description: GenericError is a generic error message returned by a server
+        properties:
+            message:
+                type: string
+                x-go-name: Message
+        type: object
+        x-go-package: github.com/AmitSuresh/playground/db-server/src/application/model
+    Order:
+        properties:
+            CargoId:
+                format: int64
+                type: integer
+            CreatedAt:
+                format: date-time
+                type: string
+            Id:
+                format: int64
+                type: integer
+            IsShipped:
+                type: boolean
+            OrderLineItems:
+                items:
+                    $ref: '#/definitions/OrderLineItem'
+                type: array
+            ShipmentNumber:
+                format: int64
+                type: integer
+        type: object
+        x-go-package: github.com/AmitSuresh/playground/db-server/src/application/domain/entity
+    OrderLineItem:
+        properties:
+            Id:
+                format: int64
+                type: integer
+            OrderId:
+                format: int64
+                type: integer
+            ProductId:
+                format: int64
+                type: integer
+            SellerId:
+                format: int64
+                type: integer
+        type: object
+        x-go-package: github.com/AmitSuresh/playground/db-server/src/application/domain/entity
+    ValidationError:
+        description: ValidationError is a collection of validation error messages
+        properties:
+            messages:
+                items:
+                    type: string
+                type: array
+                x-go-name: Messages
+        type: object
+        x-go-package: github.com/AmitSuresh/playground/db-server/src/application/model
+info:
+    description: '# Documentation for db-server'
+    title: db-server
+    version: 1.0.0
+paths:
+    /orders:
+        post:
+            description: Creates an Order
+            operationId: createOrder
+            parameters:
+                - description: Product data structure to Update or Create.
+                  in: body
+                  name: Body
+                  required: true
+                  schema:
+                    $ref: '#/definitions/CreateOrderCommand'
+                - description: The correlation ID for tracking the request
+                  in: header
+                  name: x-correlationid
+                  required: true
+                  type: string
+            responses:
+                "201":
+                    $ref: '#/responses/orderResponse'
+                "400":
+                    $ref: '#/responses/errorResponse'
+                "402":
+                    $ref: '#/responses/validationErrorResponse'
+                "500":
+                    $ref: '#/responses/errorResponse'
+            tags:
+                - order
+    /orders/{id}:
+        get:
+            description: Returns an Order
+            operationId: listOrder
+            parameters:
+                - description: The ID of the order to retrieve
+                  format: int64
+                  in: path
+                  name: id
+                  required: true
+                  type: integer
+                - description: The correlation ID for tracking the request
+                  in: header
+                  name: x-correlationid
+                  required: true
+                  type: string
+            responses:
+                "200":
+                    $ref: '#/responses/orderResponse'
+                "400":
+                    $ref: '#/responses/errorResponse'
+                "500":
+                    $ref: '#/responses/errorResponse'
+            tags:
+                - order
+produces:
+    - application/json
+responses:
+    errorResponse:
+        description: Generic error message returned as a string
+        schema:
+            $ref: '#/definitions/GenericError'
+    orderResponse:
+        description: OrderResponse represents the response for an order
+        schema:
+            $ref: '#/definitions/Order'
+    validationErrorResponse:
+        description: Validation errors defined as an array of strings
+        schema:
+            $ref: '#/definitions/ValidationError'
+schemes:
+    - http
+swagger: "2.0"

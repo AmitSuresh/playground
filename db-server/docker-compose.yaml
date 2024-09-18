@@ -1,0 +1,85 @@
+services:
+  traefik:
+    image: traefik:v3.1
+    command:
+      - "--api.insecure=true"
+      - "--providers.docker=true"
+      - "--entrypoints.web.address=:80"
+    ports:
+      - "80:80"
+      - "8080:8080"
+    volumes:
+      - "/var/run/docker.sock:/var/run/docker.sock:ro"
+    networks:
+      - web
+
+  db:
+    image: postgres
+    restart: always
+    shm_size: 128mb
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    networks:
+      - web
+    depends_on:
+      traefik:
+        condition: service_started
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "postgres"]
+      interval: 10s
+      retries: 5
+      start_period: 30s
+      timeout: 5s
+
+  pg-admin:
+    image: dpage/pgadmin4:8
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@email.com
+      PGADMIN_DEFAULT_PASSWORD: admin
+    ports:
+      - "9092:80"
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.pg-admin.rule=Host(`pg-admin.localhost`)"
+      - "traefik.http.routers.pg-admin.entrypoints=web"
+      - "traefik.http.services.pg-admin.loadbalancer.server.port=80"
+    networks:
+      - web
+    depends_on:
+      db:
+        condition: service_healthy
+      traefik:
+        condition: service_started
+      
+  client-server:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.client-server.rule=Host(`client-server.localhost`)"
+      - "traefik.http.routers.client-server.entrypoints=web"
+      - "traefik.http.services.client-server.loadbalancer.server.port=9090"
+    ports:
+      - "9090:9090"
+    networks:
+      - web
+    volumes:
+      - ./docs/swagger.yaml:/app/docs/swagger.yaml
+      - ./docs/docs.go:/app/docs/docs.go
+    env_file:
+      - ./.env
+    restart: unless-stopped
+    user: "1001:1001"
+    depends_on:
+      traefik:
+        condition: service_started
+      db:
+        condition: service_healthy
+
+networks:
+  web:
+    external: true
